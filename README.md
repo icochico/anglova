@@ -2,13 +2,14 @@
  / _` || '_ \  / _` || | / _ \ \ \ / / / _` |
 | (_| || | | || (_| || || (_) | \ V / | (_| |
  \__,_||_| |_| \__, ||_| \___/   \_/   \_|
-               |___/```
+               |___/
+```
 
 Anglova is a benchmark platform that enables the evaluation
 of a variety of messaging protocols and P2P file systems:
 NATS, RabbitMQ, Apache Kafka, MQTT, IPFS etc.
 			   
-=== BUILD ===
+* Build
 
 Dependencies: 
 
@@ -26,7 +27,7 @@ Without make:
 go get ihmc.us/anglova
 go install ihmc.us/anglova
 
-<b>Run</b>
+* Run
 
 ```Usage:
   anglova [command]
