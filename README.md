@@ -1,11 +1,11 @@
 ```  __ _  _ __    __ _ | |  ___  __   __  __ 
  / _` || '_ \  / _` || | / _ \ \ \ / / / _` |
 | (_| || | | || (_| || || (_) | \ V / | (_| |
- \__,_||_| |_| \__, ||_| \___/   \_/   \_|
+ \__,_||_| |_| \__, ||_| \___/   \_/   \__,_|
                |___/
 ```
 
-Anglova is a benchmark platform that enables the evaluation
+<b>Anglova</b> is a benchmark platform that enables the evaluation
 of a variety of messaging protocols and P2P file systems:
 NATS, RabbitMQ, Apache Kafka, MQTT, IPFS etc.
 			   
@@ -14,18 +14,18 @@ NATS, RabbitMQ, Apache Kafka, MQTT, IPFS etc.
 Dependencies: 
 
 Go (>= 1.8) https://golang.org/dl/<br/>
-make (suggested) https://www.gnu.org/software/make/<br/>
+GNU make (suggested) https://www.gnu.org/software/make/<br/>
 
 Type 'make' to build
 
-With make:
+With GNU make:
 
-'make'
+```make```
 
 Without make:
 
-go get ihmc.us/anglova
-go install ihmc.us/anglova
+```go get ihmc.us/anglova``` <br/>
+```go install ihmc.us/anglova``` <br/>
 
 * Run
 
