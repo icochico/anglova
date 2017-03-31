@@ -9,14 +9,14 @@
 of a variety of messaging protocols and P2P file systems:
 NATS, RabbitMQ, Apache Kafka, MQTT, IPFS etc.
 			   
-* Build
 
-Dependencies: 
+
+<b>Dependencies</b>
 
 Go (>= 1.8) https://golang.org/dl/<br/>
 GNU make (suggested) https://www.gnu.org/software/make/<br/>
 
-Type 'make' to build
+<b>Build</b>
 
 With GNU make:
 
@@ -27,7 +27,7 @@ Without make:
 ```go get ihmc.us/anglova``` <br/>
 ```go install ihmc.us/anglova``` <br/>
 
-* Run
+<b>Run</b>
 
 ```Usage:
   anglova [command]
