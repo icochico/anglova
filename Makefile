@@ -1,5 +1,5 @@
 # Set the GOPATH
-GOPATH := ${PWD}/:${GOPATH}
+GOPATH := ${PWD}/
 export GOPATH
 
 # This is how we want to name the binary output
