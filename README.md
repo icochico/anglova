@@ -34,21 +34,27 @@ Without make:
   anglova [command]
 
 Available Commands:
+  help        Help about any command
   publish     Publish to a topic
-  pubsub      Publish and Subscribe to a topic
-  stats       Operate as a stats server
+  pubsub      Publish and subscribe to a topic
+  scenario    Run the anglova scenario
+  stats       Run the stats server
   subscribe   Subscribe to a topic
   version     Print the version number of anglova
 
 Flags:
       --broker-address string       broker address (default "127.0.0.1")
       --config string               config file (default is $HOME/.anglova.yaml)
+      --enable-blueforce            Enable Blue Force Tracks in scenario, topic: blueforce
+      --enable-hqreport             Enable HQ Reports in scenario, topic: hqreport
+      --enable-sensordata           Enable Sensor Data in scenario, topic: sensordata
       --message-number int          number of messages (default 1024)
       --message-size int            size of the message (default 1024)
-      --port string                 the broker's port (default "4222")
+      --port string                 port used by the broker (default "4222")
       --protocol string             protocol type (default "nats")
       --publish-interval duration   interval between two messages published (default 1µs)
-      --stats-address string        statistics server address (default "127.0.0.1")
+      --stats-address string        stats server address (default "127.0.0.1")
+      --stats-port string           port used by the stats server (default "4223")
   -t, --toggle                      Help message for toggle
       --topic string                topic name (default "test")
       --viper                       Use Viper for configuration (default true)
