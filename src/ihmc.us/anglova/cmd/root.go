@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"ihmc.us/anglova/config"
+	"ihmc.us/anglova/scenario"
 )
 
 //version
@@ -47,6 +48,7 @@ const (
 	DefaultMessageNumber   = 1024 //number of messages to be sent in a session
 	DefaultTopic           = "test"
 	DefaultPort            = "4222"
+	DefaultStatsPort       = "4223"
 	Scheme                 = "://"
 )
 
@@ -84,14 +86,18 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&cfg.File, "config", "",
 		"config file (default is $HOME/."+Name+".yaml)")
 	RootCmd.PersistentFlags().StringVar(&cfg.BrokerAddress, "broker-address", DefaultBrokerAddress, "broker address")
-	RootCmd.PersistentFlags().StringVar(&cfg.StatsAddress, "stats-address", DefaultBrokerAddress, "statistics server address")
+	RootCmd.PersistentFlags().StringVar(&cfg.StatsAddress, "stats-address", DefaultBrokerAddress, "stats server address")
 	RootCmd.PersistentFlags().StringVar(&cfg.Protocol, "protocol", DefaultProtocol, "protocol type")
 	RootCmd.PersistentFlags().IntVar(&cfg.MessageSize, "message-size", DefaultMessageSize, "size of the message")
 	RootCmd.PersistentFlags().DurationVar(&cfg.PublishInterval, "publish-interval", DefaultPublishInterval,
 		"interval between two messages published")
 	RootCmd.PersistentFlags().IntVar(&cfg.MessageNumber, "message-number", DefaultMessageNumber, "number of messages")
-	RootCmd.PersistentFlags().StringVar(&cfg.Port, "port", DefaultPort, "the broker's port")
+	RootCmd.PersistentFlags().StringVar(&cfg.BrokerPort, "port", DefaultPort, "port used by the broker")
+	RootCmd.PersistentFlags().StringVar(&cfg.StatsPort, "stats-port", DefaultStatsPort, "port used by the stats server")
 	RootCmd.PersistentFlags().StringVar(&cfg.Topic, "topic", "test", "topic name")
+	RootCmd.PersistentFlags().BoolVar(&cfg.EnableBlueForce, "enable-blueforce", false, "Enable Blue Force Tracks in scenario, topic: "+scenario.BlueForceTopic)
+	RootCmd.PersistentFlags().BoolVar(&cfg.EnableSensorData, "enable-sensordata", false, "Enable Sensor Data in scenario, topic: "+scenario.SensorDataTopic)
+	RootCmd.PersistentFlags().BoolVar(&cfg.EnableHQReport, "enable-hqreport", false, "Enable HQ Reports in scenario, topic: "+scenario.HQReportTopic)
 	RootCmd.PersistentFlags().Bool("viper", true, "Use Viper for configuration")
 	viper.BindPFlag("author", RootCmd.PersistentFlags().Lookup("author"))
 	viper.BindPFlag("projectbase", RootCmd.PersistentFlags().Lookup("projectbase"))

@@ -3,7 +3,7 @@ package cmd
 import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"ihmc.us/anglova/sub"
+	"ihmc.us/anglova/pubsub"
 )
 
 func init() {
@@ -15,15 +15,15 @@ var subscribeCmd = &cobra.Command{
 	Short: "Subscribe to a topic",
 	Long:  "Suscribe to a specific topic through the underlyng message broker",
 	Run: func(cmd *cobra.Command, args []string) {
-		var subscriber *sub.Sub
+		var sub *pubsub.Sub
 		var err error
 
-		subscriber, err = sub.New(cfg.Protocol, cfg.BrokerAddress, cfg.Port, cfg.Topic)
+		sub, err = pubsub.NewSub(cfg.Protocol, cfg.BrokerAddress, cfg.BrokerPort, cfg.Topic)
 		if err != nil {
-			log.Fatal("Unable to create subscriber", err)
+			log.Fatal("Unable to create sub", err)
 		}
 
 		//launch the test
-		subscriber.SubscriberTest(cfg.Topic)
+		sub.Subscribe(cfg.Topic)
 	},
 }

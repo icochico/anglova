@@ -6,4 +6,5 @@ const (
 	RabbitMQ = "rabbitmq"
 	MQTT     = "mqtt"
 	Kafka    = "kafka"
+	IPFS     = "ipfs"
 )

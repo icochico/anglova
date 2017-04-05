@@ -13,6 +13,12 @@ GIT_HASH=`git rev-parse HEAD`
 # Setup the -ldflags option for go build here, interpolate the variable values
 LDFLAGS=-ldflags "-X ihmc.us/anglova/cmd.Version=${VERSION} -X ihmc.us/anglova/cmd.BuildTime=${BUILD_TIME} -X ihmc.us/anglova/cmd.GitHash=${GIT_HASH}"
 
+.PHONY: all
 all:
 	go get ihmc.us/anglova
 	go build ${LDFLAGS} -o bin/${BINARY} ihmc.us/anglova
+
+.PHONY: clean
+clean:
+	go clean
+	rm -rf bin/${BINARY}

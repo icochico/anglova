@@ -8,9 +8,10 @@ import (
 	"github.com/eclipse/paho.mqtt.golang"
 	"github.com/elodina/go_kafka_client/Godeps/_workspace/src/github.com/Shopify/sarama"
 	"ihmc.us/anglova/protocol"
+	"github.com/ipfs/go-ipfs-api"
 )
 
-type KafkaClient struct {
+type Kafka struct {
 	Producer sarama.SyncProducer
 	Consumer sarama.Consumer
 }
@@ -18,14 +19,16 @@ type KafkaClient struct {
 type Conn struct {
 	Protocol string
 	//NATS works on the conn
-	Nats nats.Conn
+	NATSClient nats.Conn
 	//RabbitMQ works on the exchange, the exchange is bind to the conn
 	//to make the code interoperable when ConnType is RABBITMQ a channel will be return
-	Rabbitmq amqp.Channel
+	RabbitMQClient amqp.Channel
 	//MQTTLib client
 	MQTTClient mqtt.Client
 	//kafka client
-	Kafka KafkaClient
+	KafkaClient Kafka
+	//IPFS shell
+	IPFSClient shell.Shell
 }
 
 func New(proto string, host string, port string, topic string) (*Conn, error) {
@@ -55,13 +58,13 @@ func New(proto string, host string, port string, topic string) (*Conn, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &Conn{Protocol: proto, Rabbitmq: *channel}, nil
+		return &Conn{Protocol: proto, RabbitMQClient: *channel}, nil
 	case protocol.NATS:
 		nconn, err := nats.Connect(proto + "://" + host + ":" + port)
 		if err != nil {
 			return nil, errors.New("Unable to establish a connection with NATS broker")
 		}
-		return &Conn{Protocol: proto, Nats: *nconn}, nil
+		return &Conn{Protocol: proto, NATSClient: *nconn}, nil
 	case protocol.MQTT:
 		opts := mqtt.NewClientOptions().AddBroker("tcp://" + host + ":" + port)
 		mqttConn := mqtt.NewClient(opts)
@@ -83,12 +86,16 @@ func New(proto string, host string, port string, topic string) (*Conn, error) {
 		config.ChannelBufferSize = 1000000
 		prod, err := sarama.NewSyncProducer(kafkaAddresses, config)
 
-		client := &KafkaClient{Producer: prod, Consumer: con}
+		client := &Kafka{Producer: prod, Consumer: con}
 
 		if err != nil {
 			return nil, errors.New("Unable to establish a connection with kafka broker")
 		}
-		return &Conn{Protocol: proto, Kafka: *client}, nil
+		return &Conn{Protocol: proto, KafkaClient: *client}, nil
+
+	case protocol.IPFS:
+		client := shell.NewShell(proto + "://" + host + ":" + port)
+		return &Conn{Protocol: proto, IPFSClient: *client}, nil
 	default:
 		return nil, errors.New("No ConnType speficied")
 	}

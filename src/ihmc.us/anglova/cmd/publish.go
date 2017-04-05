@@ -3,7 +3,7 @@ package cmd
 import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"ihmc.us/anglova/pub"
+	"ihmc.us/anglova/pubsub"
 )
 
 func init() {
@@ -15,11 +15,11 @@ var publishCmd = &cobra.Command{
 	Short: "Publish to a topic",
 	Long:  "Publish to a specific topic through the underlyng message broker",
 	Run: func(cmd *cobra.Command, args []string) {
-		publisher, err := pub.New(cfg.Protocol, cfg.BrokerAddress, cfg.Port, cfg.Topic)
+		pub, err := pubsub.NewPub(cfg.Protocol, cfg.BrokerAddress, cfg.BrokerPort, cfg.Topic)
 		if err != nil {
-			log.Fatal("Unable to create publisher ", err)
+			log.Fatal("Unable to create pub ", err)
 		}
 
-		publisher.PublishTest(cfg.Topic, cfg.MessageNumber, cfg.MessageSize, cfg.PublishInterval)
+		pub.PublishSequence(cfg.Topic, cfg.MessageNumber, cfg.MessageSize, cfg.PublishInterval)
 	},
 }

@@ -3,8 +3,7 @@ package cmd
 import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"ihmc.us/anglova/pub"
-	"ihmc.us/anglova/sub"
+	"ihmc.us/anglova/pubsub"
 )
 
 func init() {
@@ -13,28 +12,28 @@ func init() {
 
 var pubSubCmd = &cobra.Command{
 	Use:   "pubsub",
-	Short: "Publish and Subscribe to a topic",
+	Short: "Publish and subscribe to a topic",
 	Long:  "Subscribe to a specific topic and publish through the underlyng message broker",
 	Run: func(cmd *cobra.Command, args []string) {
-		publisher, err := pub.New(cfg.Protocol, cfg.BrokerAddress, cfg.Port, cfg.Topic)
+		pub, err := pubsub.NewPub(cfg.Protocol, cfg.BrokerAddress, cfg.BrokerPort, cfg.Topic)
 		if err != nil {
-			log.Fatal("Unable to create publisher ", err)
+			log.Fatal("Unable to create pub ", err)
 		}
-		subscriber, err := sub.New(cfg.Protocol, cfg.BrokerAddress, cfg.Port, cfg.Topic)
+		sub, err := pubsub.NewSub(cfg.Protocol, cfg.BrokerAddress, cfg.BrokerPort, cfg.Topic)
 		if err != nil {
-			log.Fatal("Unable to create subscriber", err)
+			log.Fatal("Unable to create sub", err)
 		}
 
 		//use a little hack to setup the test
-		//the publisher and the subscriber in this configuration are obviously the same
-		//the subscriber does not want to receiver the messages it has submitted
+		//the pub and the sub in this configuration are obviously the same
+		//the sub does not want to receiver the messages it has submitted
 		//the ID of the two entities must be the same
-		subscriber.SubID = publisher.PubID
-		//launch both the publisher and the subscriber
+		sub.ID = pub.ID
+		//launch both the pub and the sub
 		//create a channel to wait the termination of the two goroutines
 		endTest := make(chan bool)
-		go subscriber.SubscriberTest(cfg.Topic)
-		go publisher.PublishTest(cfg.Topic, cfg.MessageNumber, cfg.MessageSize, cfg.PublishInterval)
+		go sub.Subscribe(cfg.Topic)
+		go pub.PublishSequence(cfg.Topic, cfg.MessageNumber, cfg.MessageSize, cfg.PublishInterval)
 		<-endTest
 	},
 }
