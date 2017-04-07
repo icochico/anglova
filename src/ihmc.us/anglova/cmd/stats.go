@@ -26,6 +26,6 @@ var statsCmd = &cobra.Command{
 		}
 
 		//launch the test
-		subscriber.SubscribeToStats("stats")
+		subscriber.SubscribeToStats()
 	},
 }

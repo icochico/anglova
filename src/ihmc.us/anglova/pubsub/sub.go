@@ -14,8 +14,10 @@ import (
 	"ihmc.us/anglova/msg"
 	"ihmc.us/anglova/stats"
 	"github.com/golang/protobuf/proto"
-	//"github.com/Shopify/sarama"
+	"github.com/Shopify/sarama"
 )
+
+const StatsTopic = "stats"
 
 type Sub struct {
 	Protocol string
@@ -42,14 +44,14 @@ var handler mqtt.MessageHandler = func(client mqtt.Client, message mqtt.Message)
 	fmt.Printf("Received message on topic: %s\nMessage: %s\n", message.Topic(), message.Payload())
 }
 
-func (sub Sub) SubscribeToStats(topic string) error {
+func (sub Sub) SubscribeToStats() error {
 
 	if sub.Protocol != protocol.NATS {
 		return errors.New("SubscribeToStats only available with NATS Broker")
 	}
 
 	quit := make(chan bool)
-	sub.conn.NATSClient.Subscribe(topic, func(m *nats.Msg) {
+	sub.conn.NATSClient.Subscribe(StatsTopic, func(m *nats.Msg) {
 		log.Info("Received stats of size: ", len(m.Data))
 		s := &stats.Stats{}
 		err := proto.Unmarshal(m.Data, s)
@@ -135,32 +137,32 @@ func (sub Sub) Subscribe(topic string) error {
 		<-quit
 	case protocol.Kafka:
 		//consumer, err := sarama.NewConsumer([]string{"10.100.0.168:9092"}, config)
-		//
-		//partitionList, err := sub.conn.KafkaClient.Consumer.Partitions(topic)
-		//if err != nil {
-		//	return errors.New("Failed to find partitions")
-		//}
-		//
-		////messages := make(chan *sarama.ConsumerMessage, 256)
-		////create the map to store the statistics of the arrived messages
-		//statmap := make(map[uint32]msg.Statistics)
-		//quit := make(chan bool)
-		//for _, partition := range partitionList {
-		//	partitionConsumer, err := sub.conn.KafkaClient.Consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
-		//	if err != nil {
-		//		log.Error("Error while reading the partition: %s", err)
-		//	} else {
-		//		go func(partitionConsumer sarama.PartitionConsumer) {
-		//			for message := range partitionConsumer.Messages() {
-		//				handleSubTest(sub, message.Value, imsgRcvCount, statmap)
-		//			}
-		//
-		//		}(partitionConsumer)
-		//	}
-		//}
-		//<-quit
-		//log.Info("Closing connection...")
-		//return nil
+
+		partitionList, err := sub.conn.KafkaClient.Consumer.Partitions(topic)
+		if err != nil {
+			return errors.New("Failed to find partitions")
+		}
+
+		//messages := make(chan *sarama.ConsumerMessage, 256)
+		//create the map to store the statistics of the arrived messages
+		statmap := make(map[uint32]msg.Statistics)
+		quit := make(chan bool)
+		for _, partition := range partitionList {
+			partitionConsumer, err := sub.conn.KafkaClient.Consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
+			if err != nil {
+				log.Error("Error while reading the partition: %s", err)
+			} else {
+				go func(partitionConsumer sarama.PartitionConsumer) {
+					for message := range partitionConsumer.Messages() {
+						handleSubTest(sub, message.Value, imsgRcvCount, statmap)
+					}
+
+				}(partitionConsumer)
+			}
+		}
+		<-quit
+		log.Info("Closing connection...")
+		return nil
 	case protocol.IPFS:
 		subscription, err := sub.conn.IPFSClient.PubSubSubscribe(topic)
 		if err != nil {

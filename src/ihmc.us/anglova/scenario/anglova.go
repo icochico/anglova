@@ -27,7 +27,6 @@ const (
 	HQReportTopic          = "hqreport"
 	HQReportSize           = 1000000
 	HQReportInterval       = 600 // 10 minutes
-	StatsTopic = "stats"
 )
 
 func NewAnglova(cfg config.Manager) (*Anglova) {
@@ -41,7 +40,7 @@ func (a *Anglova) Run() {
 	var quitChannels []chan bool
 
 	//for statistics, use nats
-	pubStats, err := pubsub.NewPub(protocol.NATS, a.Cfg.StatsAddress, a.Cfg.StatsPort, StatsTopic)
+	pubStats, err := pubsub.NewPub(protocol.NATS, a.Cfg.StatsAddress, a.Cfg.StatsPort, pubsub.StatsTopic)
 	if err != nil {
 		log.Error(err)
 	}
@@ -66,7 +65,6 @@ func (a *Anglova) Run() {
 		}
 		sensorDataPublishRoutine(pubSD, pubStats, quitSD)
 	}
-
 
 	if a.Cfg.EnableHQReport {
 		quitHQ := make(chan bool)
@@ -167,5 +165,5 @@ func publishStats(pub *pubsub.Pub, msgCount uint32) {
 	if err != nil {
 		log.Error(err)
 	}
-	pub.Publish(StatsTopic, statBuf)
+	pub.Publish(pubsub.StatsTopic, statBuf)
 }

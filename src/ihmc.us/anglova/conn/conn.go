@@ -6,7 +6,7 @@ import (
 	"github.com/nats-io/go-nats"
 	"github.com/streadway/amqp"
 	"github.com/eclipse/paho.mqtt.golang"
-	"github.com/elodina/go_kafka_client/Godeps/_workspace/src/github.com/Shopify/sarama"
+	"github.com/Shopify/sarama"
 	"ihmc.us/anglova/protocol"
 	"github.com/ipfs/go-ipfs-api"
 )
