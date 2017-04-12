@@ -2,18 +2,38 @@ package conn
 
 import (
 	"errors"
+	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/nats-io/go-nats"
-	"github.com/streadway/amqp"
 	"github.com/eclipse/paho.mqtt.golang"
 	"github.com/elodina/go_kafka_client/Godeps/_workspace/src/github.com/Shopify/sarama"
-	"ihmc.us/anglova/protocol"
+	"github.com/garyburd/redigo/redis"
 	"github.com/ipfs/go-ipfs-api"
+	"github.com/nats-io/go-nats"
+	zmq "github.com/pebbe/zmq4"
+	"github.com/streadway/amqp"
+	"ihmc.us/anglova/protocol"
+	"sync"
+	"time"
 )
 
 type Kafka struct {
 	Producer sarama.SyncProducer
 	Consumer sarama.Consumer
+}
+
+type ZMQ struct {
+	ctx *zmq.Context
+	Pub *zmq.Socket
+	Sub *zmq.Socket
+}
+
+// Redis client - defines the underlying connection and pub-sub
+// connections, as well as a mutex for locking write access,
+// since this occurs from multiple goroutines.
+type Redis struct {
+	Conn redis.Conn
+	redis.PubSubConn
+	sync.Mutex
 }
 
 type Conn struct {
@@ -29,6 +49,10 @@ type Conn struct {
 	KafkaClient Kafka
 	//IPFS shell
 	IPFSClient shell.Shell
+	//ZMQ client
+	ZMQClient ZMQ
+	//Redis client
+	RedisClient Redis
 }
 
 func New(proto string, host string, port string, topic string) (*Conn, error) {
@@ -96,6 +120,42 @@ func New(proto string, host string, port string, topic string) (*Conn, error) {
 	case protocol.IPFS:
 		client := shell.NewShell(proto + "://" + host + ":" + port)
 		return &Conn{Protocol: proto, IPFSClient: *client}, nil
+	case protocol.ZMQ:
+		var err error
+		var context *zmq.Context
+		context, err = zmq.NewContext()
+		if err != nil {
+			return nil, errors.New("Unable to establish a connection with ZMQ broker")
+		}
+		var pub *zmq.Socket
+		pub, err = context.NewSocket(zmq.PUSH)
+		if err != nil {
+			return nil, errors.New("Unable to establish a connection with ZMQ broker")
+		}
+		pub.Connect(fmt.Sprintf("tcp://%s:%s", host, port))
+		var sub *zmq.Socket
+		sub, err = context.NewSocket(zmq.SUB)
+		if err != nil {
+			return nil, errors.New("Unable to establish a connection with ZMQ broker")
+		}
+		sub.Connect(fmt.Sprintf("tcp://%s:%s", host, port))
+		client := &ZMQ{context, pub, sub}
+
+		return &Conn{Protocol: proto, ZMQClient: *client}, nil
+	case protocol.Redis:
+		var redisHost = fmt.Sprintf("%s:%s", host, port)
+		conn, _ := redis.Dial("tcp", redisHost)
+		pubsub, _ := redis.Dial("tcp", redisHost)
+		client := Redis{conn, redis.PubSubConn{pubsub}, sync.Mutex{}}
+		go func() {
+			for {
+				time.Sleep(200 * time.Millisecond)
+				client.Lock()
+				client.Conn.Flush()
+				client.Unlock()
+			}
+		}()
+		return &Conn{Protocol: proto, RedisClient: client}, nil
 	default:
 		return nil, errors.New("No ConnType speficied")
 	}

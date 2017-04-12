@@ -2,18 +2,19 @@ package pubsub
 
 import (
 	"errors"
-	log "github.com/Sirupsen/logrus"
-	"math/rand"
-	"time"
 	"fmt"
-	"strings"
-	"github.com/nats-io/go-nats"
+	log "github.com/Sirupsen/logrus"
 	"github.com/eclipse/paho.mqtt.golang"
-	"ihmc.us/anglova/protocol"
+	"github.com/garyburd/redigo/redis"
+	"github.com/golang/protobuf/proto"
+	"github.com/nats-io/go-nats"
 	"ihmc.us/anglova/conn"
 	"ihmc.us/anglova/msg"
+	"ihmc.us/anglova/protocol"
 	"ihmc.us/anglova/stats"
-	"github.com/golang/protobuf/proto"
+	"math/rand"
+	"strings"
+	"time"
 	//"github.com/Shopify/sarama"
 )
 
@@ -33,9 +34,9 @@ func NewSub(protocol string, host string, port string, topic string) (*Sub, erro
 		return nil, err
 	}
 	return &Sub{Protocol: protocol,
-		conn:         *conn,
-		ID:           id,
-		Topic:        topic}, nil
+		conn:  *conn,
+		ID:    id,
+		Topic: topic}, nil
 }
 
 var handler mqtt.MessageHandler = func(client mqtt.Client, message mqtt.Message) {
@@ -168,6 +169,25 @@ func (sub Sub) Subscribe(topic string) error {
 		}
 		for record, err := subscription.Next(); err != nil; {
 			handleSubTest(sub, record.Data(), imsgRcvCount, statmap)
+		}
+		<-quit
+	case protocol.ZMQ:
+		err := sub.conn.ZMQClient.Sub.SetSubscribe(topic)
+		if err != nil {
+			return err
+		}
+		for message, err := sub.conn.ZMQClient.Sub.Recv(0); err != nil; {
+			parts := strings.SplitN(string(message), " ", 2)
+			handleSubTest(sub, []byte(parts[1]), imsgRcvCount, statmap)
+		}
+		<-quit
+	case protocol.Redis:
+		sub.conn.RedisClient.Subscribe(topic)
+		for {
+			switch v := sub.conn.RedisClient.Receive().(type) {
+			case redis.Message:
+				handleSubTest(sub, v.Data, imsgRcvCount, statmap)
+			}
 		}
 		<-quit
 	default:

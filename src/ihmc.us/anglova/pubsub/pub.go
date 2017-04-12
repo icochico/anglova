@@ -2,15 +2,15 @@ package pubsub
 
 import (
 	"errors"
+	_ "github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
-	"math/rand"
-	"time"
-	"sync/atomic"
 	"github.com/streadway/amqp"
-	_"github.com/Shopify/sarama"
-	"ihmc.us/anglova/protocol"
 	"ihmc.us/anglova/conn"
 	"ihmc.us/anglova/msg"
+	"ihmc.us/anglova/protocol"
+	"math/rand"
+	"sync/atomic"
+	"time"
 	//"github.com/Shopify/sarama"
 )
 
@@ -30,8 +30,8 @@ func NewPub(protocol string, host string, port string, topic string) (*Pub, erro
 		return nil, err
 	}
 	return &Pub{Protocol: protocol,
-		ID:           id,
-		conn:         *connection}, nil
+		ID:   id,
+		conn: *connection}, nil
 }
 
 //implement the ping
@@ -85,6 +85,12 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 	//_, _, err = pub.conn.KafkaClient.Producer.SendMessage(kafkaMessage)
 	case protocol.IPFS:
 		err = pub.conn.IPFSClient.PubSubPublish(topic, string(buf[:]))
+	case protocol.ZMQ:
+		_, err = pub.conn.ZMQClient.Pub.Send(topic+" "+string(buf[:]), 0)
+	case protocol.Redis:
+		pub.conn.RedisClient.Lock()
+		pub.conn.RedisClient.Conn.Send("PUBLISH", topic, buf)
+		pub.conn.RedisClient.Unlock()
 	default:
 		return errors.New("Unsupported protocol")
 	}
