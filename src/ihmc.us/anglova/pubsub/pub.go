@@ -2,15 +2,15 @@ package pubsub
 
 import (
 	"errors"
-	log "github.com/Sirupsen/logrus"
-	"math/rand"
-	"time"
-	"sync/atomic"
-	"github.com/streadway/amqp"
 	"github.com/Shopify/sarama"
-	"ihmc.us/anglova/protocol"
+	log "github.com/Sirupsen/logrus"
+	"github.com/streadway/amqp"
 	"ihmc.us/anglova/conn"
 	"ihmc.us/anglova/msg"
+	"ihmc.us/anglova/protocol"
+	"math/rand"
+	"sync/atomic"
+	"time"
 )
 
 type Pub struct {
@@ -23,14 +23,14 @@ func NewPub(protocol string, host string, port string, topic string) (*Pub, erro
 	id := rand.Uint32() + uint32(time.Now().Nanosecond())
 
 	//create the connection
-	connection, err := conn.New(protocol, host, port, topic)
+	connection, err := conn.New(protocol, host, port, topic, true)
 	if err != nil {
 		log.Error("Error during the connection with the broker!")
 		return nil, err
 	}
 	return &Pub{Protocol: protocol,
-		ID:           id,
-		conn:         *connection}, nil
+		ID:   id,
+		conn: *connection}, nil
 }
 
 //implement the ping
@@ -80,10 +80,16 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 		token := pub.conn.MQTTClient.Publish(topic, 0, false, buf)
 		token.Wait()
 	case protocol.Kafka:
-		kafkaMessage := &sarama.ProducerMessage{Topic: topic, Value: sarama.ByteEncoder(buf), }
+		kafkaMessage := &sarama.ProducerMessage{Topic: topic, Value: sarama.ByteEncoder(buf)}
 		_, _, err = pub.conn.KafkaClient.Producer.SendMessage(kafkaMessage)
 	case protocol.IPFS:
 		err = pub.conn.IPFSClient.PubSubPublish(topic, string(buf[:]))
+	case protocol.ZMQ:
+		_, err = pub.conn.ZMQClient.SendMessage(topic, buf)
+	case protocol.Redis:
+		pub.conn.RedisClient.Lock()
+		pub.conn.RedisClient.Conn.Send("PUBLISH", topic, buf)
+		pub.conn.RedisClient.Unlock()
 	default:
 		return errors.New("Unsupported protocol")
 	}

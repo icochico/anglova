@@ -2,19 +2,20 @@ package pubsub
 
 import (
 	"errors"
-	log "github.com/Sirupsen/logrus"
-	"math/rand"
-	"time"
 	"fmt"
-	"strings"
-	"github.com/nats-io/go-nats"
+	"github.com/Shopify/sarama"
+	log "github.com/Sirupsen/logrus"
 	"github.com/eclipse/paho.mqtt.golang"
-	"ihmc.us/anglova/protocol"
+	"github.com/garyburd/redigo/redis"
+	"github.com/golang/protobuf/proto"
+	"github.com/nats-io/go-nats"
 	"ihmc.us/anglova/conn"
 	"ihmc.us/anglova/msg"
+	"ihmc.us/anglova/protocol"
 	"ihmc.us/anglova/stats"
-	"github.com/golang/protobuf/proto"
-	"github.com/Shopify/sarama"
+	"math/rand"
+	"strings"
+	"time"
 )
 
 const StatsTopic = "stats"
@@ -29,15 +30,15 @@ type Sub struct {
 func NewSub(protocol string, host string, port string, topic string) (*Sub, error) {
 
 	id := rand.Uint32() + uint32(time.Now().Nanosecond())
-	conn, err := conn.New(protocol, host, port, topic)
+	conn, err := conn.New(protocol, host, port, topic, false)
 	if err != nil {
 		log.Error("Error during the connection with the broker!")
 		return nil, err
 	}
 	return &Sub{Protocol: protocol,
-		conn:         *conn,
-		ID:           id,
-		Topic:        topic}, nil
+		conn:  *conn,
+		ID:    id,
+		Topic: topic}, nil
 }
 
 var handler mqtt.MessageHandler = func(client mqtt.Client, message mqtt.Message) {
@@ -170,6 +171,29 @@ func (sub Sub) Subscribe(topic string) error {
 		}
 		for record, err := subscription.Next(); err != nil; {
 			handleSubTest(sub, record.Data(), imsgRcvCount, statmap)
+		}
+		<-quit
+	case protocol.ZMQ:
+		err := sub.conn.ZMQClient.SetSubscribe(topic)
+		if err != nil {
+			return err
+		}
+		for {
+			message, err := sub.conn.ZMQClient.RecvMessageBytes(0)
+			if err != nil {
+				log.Fatal("Error receiving messages", err)
+				break
+			}
+			handleSubTest(sub, message[1], imsgRcvCount, statmap)
+		}
+		<-quit
+	case protocol.Redis:
+		sub.conn.RedisClient.Subscribe(topic)
+		for {
+			switch v := sub.conn.RedisClient.Receive().(type) {
+			case redis.Message:
+				handleSubTest(sub, v.Data, imsgRcvCount, statmap)
+			}
 		}
 		<-quit
 	default:

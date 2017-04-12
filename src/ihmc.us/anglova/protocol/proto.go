@@ -7,4 +7,6 @@ const (
 	MQTT     = "mqtt"
 	Kafka    = "kafka"
 	IPFS     = "ipfs"
+	ZMQ      = "zeromq"
+	Redis    = "redis"
 )
