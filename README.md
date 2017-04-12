@@ -34,6 +34,7 @@ Without make:
   anglova [command]
 
 Available Commands:
+  broker      Start a ZMQ broker
   help        Help about any command
   publish     Publish to a topic
   pubsub      Publish and subscribe to a topic
