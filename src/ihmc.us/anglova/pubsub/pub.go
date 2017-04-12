@@ -12,6 +12,10 @@ import (
 	"sync/atomic"
 	"time"
 	//"github.com/Shopify/sarama"
+	"github.com/Shopify/sarama"
+	"ihmc.us/anglova/conn"
+	"ihmc.us/anglova/msg"
+	"ihmc.us/anglova/protocol"
 )
 
 type Pub struct {
@@ -81,8 +85,8 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 		token := pub.conn.MQTTClient.Publish(topic, 0, false, buf)
 		token.Wait()
 	case protocol.Kafka:
-	//kafkaMessage := &sarama.ProducerMessage{Topic: topic, Value: sarama.ByteEncoder(buf), }
-	//_, _, err = pub.conn.KafkaClient.Producer.SendMessage(kafkaMessage)
+		kafkaMessage := &sarama.ProducerMessage{Topic: topic, Value: sarama.ByteEncoder(buf)}
+		_, _, err = pub.conn.KafkaClient.Producer.SendMessage(kafkaMessage)
 	case protocol.IPFS:
 		err = pub.conn.IPFSClient.PubSubPublish(topic, string(buf[:]))
 	case protocol.ZMQ:

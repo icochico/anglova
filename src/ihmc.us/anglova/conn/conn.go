@@ -3,6 +3,7 @@ package conn
 import (
 	"errors"
 	"fmt"
+	"github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
 	"github.com/eclipse/paho.mqtt.golang"
 	"github.com/elodina/go_kafka_client/Godeps/_workspace/src/github.com/Shopify/sarama"
