@@ -16,60 +16,134 @@ import (
 	"math/rand"
 	"strings"
 	"time"
+	"sync"
+	"os"
+	"encoding/csv"
+	"strconv"
 )
 
 const StatsTopic = "stats"
 
 type Sub struct {
-	Protocol string
-	conn     conn.Conn
-	ID       uint32
-	Topic    string
+	Protocol  string
+	conn      conn.Conn
+	statsConn conn.Conn
+	ID        int32
+	Topic     string
 }
 
-func NewSub(protocol string, host string, port string, topic string) (*Sub, error) {
+//lock to sync the reading and writing operation on the below maps
+var lock = sync.RWMutex{}
+//PubID MsgId SentTime
+var sentTimes = make(map[int32]map[int32]time.Time)
+//PubId MsgID SubID RcvTime
+var rcvTimes = make(map[int32]map[int32]map[int32]time.Time)
 
-	id := rand.Uint32() + uint32(time.Now().Nanosecond())
-	conn, err := conn.New(protocol, host, port, topic, false)
+func NewSub(proto string, host string, port string, topic string, statsHost string, statsPort string) (*Sub, error) {
+	id := rand.Int31()
+	connection, err := conn.New(proto, host, port, topic, false)
 	if err != nil {
 		log.Error("Error during the connection with the broker!")
 		return nil, err
 	}
-	return &Sub{Protocol: protocol,
-		conn:  *conn,
-		ID:    id,
-		Topic: topic}, nil
+	sConn, err := conn.New(protocol.NATS, statsHost, statsPort, StatsTopic, true)
+	if err != nil {
+		log.Error("Error during the connection with the stats broker!")
+		return nil, err
+	}
+	return &Sub{Protocol: proto,
+		conn:         *connection,
+		statsConn:    *sConn,
+		ID:           id,
+		Topic:        topic}, nil
 }
 
-var handler mqtt.MessageHandler = func(client mqtt.Client, message mqtt.Message) {
-	fmt.Printf("Received message on topic: %s\nMessage: %s\n", message.Topic(), message.Payload())
-}
-
+//stats server function
+//the stat server subscribe to the sub topic to obtain the message info
+//it will use the info to calculate the delayed time
 func (sub Sub) SubscribeToStats() error {
 
 	if sub.Protocol != protocol.NATS {
 		return errors.New("SubscribeToStats only available with NATS Broker")
 	}
-
 	quit := make(chan bool)
-	sub.conn.NATSClient.Subscribe(StatsTopic, func(m *nats.Msg) {
-		log.Info("Received stats of size: ", len(m.Data))
-		s := &stats.Stats{}
-		err := proto.Unmarshal(m.Data, s)
-		if err != nil {
-			log.Warn(" Unmarshalling error: ", err)
-			//ns.wg.Done()
-			return
-		}
-
-		log.Debug("Received statistics: ", s)
-
-	})
+	go handleStatInfo(&sub, quit)
+	go handleStatGen(quit)
 	<-quit
 
 	return nil
 }
 
+//handle the StatsSenderTopic info
+func handleStatInfo(sub *Sub, quit chan bool) error {
+	sub.statsConn.NATSClient.Subscribe(StatsTopic, func(m *nats.Msg) {
+		log.Info("Received stats of size: ", len(m.Data))
+		s := &stats.Stats{}
+		err := proto.Unmarshal(m.Data, s)
+		if err != nil {
+			log.Warn(" Unmarshalling error: ", err)
+			return
+		}
+		lock.Lock()
+		if s.ClientType == stats.ClientType_Publisher {
+			log.Debug("Received statistics from publisher: ", s.PublisherId, s.SubscriberId, s.MessageId)
+			if len(sentTimes[s.PublisherId]) == 0 {
+				sentTimes[s.PublisherId] = make(map[int32]time.Time)
+			}
+			sentTimes[s.PublisherId][s.MessageId] = time.Now()
+		} else {
+			fmt.Println("Received statistics from subscriber: ", s.PublisherId, s.SubscriberId, s.MessageId)
+			if len(rcvTimes[s.PublisherId]) == 0 {
+				rcvTimes[s.PublisherId] = make(map[int32]map[int32]time.Time)
+			}
+			if len(rcvTimes[s.PublisherId][s.MessageId]) == 0 {
+				rcvTimes[s.PublisherId][s.MessageId] = make(map[int32]time.Time)
+			}
+			rcvTimes[s.PublisherId][s.MessageId][s.SubscriberId] = time.Now()
+		}
+		lock.Unlock()
+	})
+	<-quit
+	return nil
+}
+
+func handleStatGen(quit chan bool) {
+	//print the result on a CSV file periodically (60 seconds)
+	for {
+		file, err := os.Create("TimeResults.csv" )
+		if err != nil {
+			log.Error("Impossible to create the csv File")
+		}
+		writer := csv.NewWriter(file)
+		lock.RLock()
+		for pubID, msgs := range rcvTimes {
+			//log.Info("Pubs: ", msgs)
+			fmt.Println("\n\nSUMMARY")
+			for msgID, subs := range msgs {
+				var totalDelayForMessage int64
+				var reachedSubscribers int32
+				for _, rTime := range subs {
+					totalDelayForMessage += (rTime.UnixNano() - sentTimes[pubID][msgID].UnixNano()) / 1e6
+					reachedSubscribers++
+				}
+				fmt.Println("PubId", pubID, "MsgId ", msgID, "MsgDelay ", totalDelayForMessage, "ReachedSubs ", reachedSubscribers)
+				res := []string{strconv.FormatInt(int64(pubID), 10), strconv.FormatInt(int64(msgID), 10),
+						strconv.FormatInt(int64(totalDelayForMessage), 10), strconv.FormatInt(int64(reachedSubscribers), 10)}
+				//log.Info("results: ", res)
+				err := writer.Write(res)
+				if err != nil {
+					log.Error("Impossible to write on the CSV file")
+				}
+				writer.Flush()
+			}
+			fmt.Println("\n\nEND SUMMARY\n\n")
+		}
+		file.Close()
+		lock.RUnlock()
+		time.Sleep(10 * time.Second)
+	}
+	<-quit
+}
 func (sub Sub) Subscribe(topic string) error {
 
 	log.Info("Subscribe <-")
@@ -77,7 +151,7 @@ func (sub Sub) Subscribe(topic string) error {
 	imsgRcvCount := 0
 	//this map contains the statistics per each node as defined in the struct Statistics
 	//the uint32 is the identifier for the pub nodes
-	statmap := make(map[uint32]msg.Statistics)
+	statmap := make(map[int32]msg.Statistics)
 	quit := make(chan bool)
 	go printTestStat(statmap)
 	switch sub.Protocol {
@@ -146,7 +220,7 @@ func (sub Sub) Subscribe(topic string) error {
 
 		//messages := make(chan *sarama.ConsumerMessage, 256)
 		//create the map to store the statistics of the arrived messages
-		statmap := make(map[uint32]msg.Statistics)
+		statmap := make(map[int32]msg.Statistics)
 		quit := make(chan bool)
 		for _, partition := range partitionList {
 			partitionConsumer, err := sub.conn.KafkaClient.Consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
@@ -202,34 +276,73 @@ func (sub Sub) Subscribe(topic string) error {
 	return nil
 }
 
-func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[uint32]msg.Statistics) {
+func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg.Statistics) {
 	//create the map to store the statistics of the arrived messages
 	metaData := msg.ParseMetadata(data)
 	delay := (time.Now().UnixNano() - metaData.Timestamp) / 1e6
 	//if the clientID of the received message
 	//is the same of the the local clientId do not increase the stat
 	if metaData.ClientID != sub.ID {
+		//is the msg out of order?
+		outOfOrder := false
+		if statmap[metaData.ClientID].ReceivedMsg != metaData.MsgId {
+			log.Debug("Out of Order? ", imsgRcvCount, metaData.MsgId)
+			outOfOrder = true
+		}
 		imsgRcvCount++
 		//delay for the message in millisecond
-		statmap[metaData.ClientID] = msg.Statistics{
+		mstat := msg.Statistics{
 			ReceivedMsg:     int32(statmap[metaData.ClientID].ReceivedMsg + 1),
 			CumulativeDelay: int64(statmap[metaData.ClientID].CumulativeDelay + delay),
 		}
-		log.Info(" Received message: clientId %d msgSize %d MsgId %d Total Received "+"messages %d. ReceivedDelay(ms) %d",
-			metaData.ClientID, len(data), metaData.MsgId, imsgRcvCount, delay)
+		if outOfOrder {
+			mstat.OutOfOrderMsgs++
+		}
+		statmap[metaData.ClientID] = mstat
+		log.Info(" Received message: clientId ", metaData.ClientID," msgSize ",  len(data), " MsgId ",  metaData.MsgId,
+			"Total Received messages", imsgRcvCount, " ReceivedDelay(ms) ", delay, "OutofOrder: ", outOfOrder)
+		//send the msg info to the stats server
+		stat := &stats.Stats{}
+		stat.ClientType = stats.ClientType_Subscriber
+		stat.PublisherId = metaData.ClientID
+		stat.SubscriberId = sub.ID
+		stat.MessageId = metaData.MsgId
+		buf, err := proto.Marshal(stat)
+		if err != nil {
+			log.Error("Impossible to Marshal the stat message")
+		}
+		//fmt.Println("about to send statistics ", stat.PublisherId, stat.SubscriberId, stat.MessageId )
+		err = sub.statsConn.NATSClient.Publish(StatsTopic, buf)
+		if err != nil {
+			log.Error("Impossible to send the msg Info to the stats broker")
+		}
 	}
 }
 
-// print the statistics of the test
-func printTestStat(statmap map[uint32]msg.Statistics) {
+// print the statistics of the test on the console
+// also write the result on a CSV file
+// the correct cumulative delay may be found on the stat server
+func printTestStat(statmap map[int32]msg.Statistics) {
 	for {
+		resFile, err := os.Create("nodeStats.csv")
+		writer := csv.NewWriter(resFile)
+		if err != nil {
+			log.Error("Error in creating the csv file for the node stat results")
+			//terminate this gorutine
+			return
+		}
 		if len(statmap) != 0 {
 			fmt.Printf("\n\n\n\n" + strings.Repeat("#", 80))
 			fmt.Printf("\n\t\tSTAT SUMMARY\n\n")
 			for clientId, clientStat := range statmap {
-				fmt.Printf("ClientId: %d ReceveidMsg: %d CumulativeDelay: %d ms\n", clientId,
-					clientStat.ReceivedMsg, clientStat.CumulativeDelay)
+				fmt.Printf("ClientId: %d  ReceveidMsg: CumulativeDelay: %d ms  OutOfOrderMsgs: %d\n",clientId,
+					 clientStat.ReceivedMsg, clientStat.OutOfOrderMsgs)
+				res := []string{strconv.FormatInt(int64(clientId), 10), strconv.FormatInt(int64(clientStat.ReceivedMsg), 10),
+						strconv.FormatInt(int64(clientStat.CumulativeDelay), 10), strconv.FormatInt(int64(clientStat.OutOfOrderMsgs), 10)}
+				writer.Write(res)
+				writer.Flush()
 			}
+			resFile.Close()
 			fmt.Printf("\n\n\n\n")
 			fmt.Printf(strings.Repeat("#", 80) + "\n")
 			time.Sleep(2000 * time.Millisecond)

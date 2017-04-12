@@ -7,8 +7,6 @@ import (
 	"ihmc.us/anglova/config"
 	"ihmc.us/anglova/msg"
 	"ihmc.us/anglova/protocol"
-	"ihmc.us/anglova/stats"
-	"github.com/gogo/protobuf/proto"
 )
 
 type Anglova struct {
@@ -40,7 +38,7 @@ func (a *Anglova) Run() {
 	var quitChannels []chan bool
 
 	//for statistics, use nats
-	pubStats, err := pubsub.NewPub(protocol.NATS, a.Cfg.StatsAddress, a.Cfg.StatsPort, pubsub.StatsTopic)
+	pubStats, err := pubsub.NewPub(protocol.NATS, a.Cfg.StatsAddress, a.Cfg.StatsPort, "", a.Cfg.StatsAddress, a.Cfg.StatsPort)
 	if err != nil {
 		log.Error(err)
 	}
@@ -49,7 +47,7 @@ func (a *Anglova) Run() {
 	if a.Cfg.EnableBlueForce {
 		quitBF := make(chan bool)
 		quitChannels = append(quitChannels, quitBF)
-		pubBF, err := pubsub.NewPub(a.Cfg.Protocol, a.Cfg.BrokerAddress, a.Cfg.BrokerPort, BlueForceTopic)
+		pubBF, err := pubsub.NewPub(a.Cfg.Protocol, a.Cfg.BrokerAddress, a.Cfg.BrokerPort, BlueForceTopic, a.Cfg.StatsAddress, a.Cfg.StatsPort)
 		if err != nil {
 			log.Error(err)
 		}
@@ -59,7 +57,7 @@ func (a *Anglova) Run() {
 	if a.Cfg.EnableSensorData {
 		quitSD := make(chan bool)
 		quitChannels = append(quitChannels, quitSD)
-		pubSD, err := pubsub.NewPub(a.Cfg.Protocol, a.Cfg.BrokerAddress, a.Cfg.BrokerPort, SensorDataTopic)
+		pubSD,err  := pubsub.NewPub(a.Cfg.Protocol, a.Cfg.BrokerAddress, a.Cfg.BrokerPort, SensorDataTopic, a.Cfg.StatsAddress, a.Cfg.StatsPort)
 		if err != nil {
 			log.Error(err)
 		}
@@ -69,7 +67,7 @@ func (a *Anglova) Run() {
 	if a.Cfg.EnableHQReport {
 		quitHQ := make(chan bool)
 		quitChannels = append(quitChannels, quitHQ)
-		pubHQ, err := pubsub.NewPub(a.Cfg.Protocol, a.Cfg.BrokerAddress, a.Cfg.BrokerPort, HQReportTopic)
+		pubHQ, err := pubsub.NewPub(a.Cfg.Protocol, a.Cfg.BrokerAddress, a.Cfg.BrokerPort, HQReportTopic, a.Cfg.StatsAddress, a.Cfg.StatsPort)
 		if err != nil {
 			log.Error(err)
 		}
@@ -91,7 +89,7 @@ func (a *Anglova) Run() {
 
 func blueForcePublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan bool) {
 	ticker := time.NewTicker(time.Second * BlueForceTrackInterval)
-	var msgCount uint32
+	var msgCount int32
 	go func() {
 		for {
 			select {
@@ -101,7 +99,7 @@ func blueForcePublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan bo
 					log.Error(err)
 				}
 				pub.Publish(BlueForceTopic, message.Bytes())
-				publishStats(pubStats, msgCount)
+				pub.PublishStats(msgCount)
 				msgCount++
 			case <-quit:
 				ticker.Stop()
@@ -113,7 +111,7 @@ func blueForcePublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan bo
 
 func sensorDataPublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan bool) {
 	ticker := time.NewTicker(time.Second * SensorDataInterval)
-	var msgCount uint32
+	var msgCount int32
 	go func() {
 		for {
 			select {
@@ -123,7 +121,7 @@ func sensorDataPublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan b
 					log.Error(err)
 				}
 				pub.Publish(SensorDataTopic, message.Bytes())
-				publishStats(pubStats, msgCount)
+				pub.PublishStats(msgCount)
 				msgCount++
 			case <-quit:
 				ticker.Stop()
@@ -136,7 +134,7 @@ func sensorDataPublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan b
 func hqReportPublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan bool) {
 
 	ticker := time.NewTicker(time.Second * HQReportInterval)
-	var msgCount uint32
+	var msgCount int32
 	go func() {
 		for {
 			select {
@@ -146,7 +144,7 @@ func hqReportPublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan boo
 					log.Error(err)
 				}
 				pub.Publish(HQReportTopic, message.Bytes())
-				publishStats(pubStats, msgCount)
+				pub.PublishStats(msgCount)
 				msgCount++
 			case <-quit:
 				ticker.Stop()
@@ -154,16 +152,4 @@ func hqReportPublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan boo
 			}
 		}
 	}()
-}
-
-func publishStats(pub *pubsub.Pub, msgCount uint32) {
-	stat := &stats.Stats{}
-	stat.ClientType = stats.ClientType_Publisher
-	stat.PublisherId = int32(pub.ID)
-	stat.MessageId = int32(msgCount)
-	statBuf, err := proto.Marshal(stat)
-	if err != nil {
-		log.Error(err)
-	}
-	pub.Publish(pubsub.StatsTopic, statBuf)
 }

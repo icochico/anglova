@@ -19,8 +19,8 @@ type Msg struct {
 //Metadata struct
 //Represent the metadata of a message
 type Metadata struct {
-	ClientID  uint32
-	MsgId     uint32
+	ClientID  int32
+	MsgId     int32
 	Timestamp int64
 }
 
@@ -29,13 +29,20 @@ type Metadata struct {
 type Statistics struct {
 	ReceivedMsg     int32
 	CumulativeDelay int64
+	OutOfOrderMsgs	int32
 }
 
 //the function parses the metadata from a []byte message and returns
 //a Metadata struct
 func ParseMetadata(msg []byte) Metadata {
-	metadata := Metadata{ClientID: binary.BigEndian.Uint32(msg[:4]),
-		MsgId:     binary.BigEndian.Uint32(msg[4:8]),
+	//trick to read the int32 from the bytes buffer
+	readInt32 := bytes.NewBuffer(msg[:8])
+	var cID int32
+	var mID int32
+	binary.Read(readInt32, binary.BigEndian, &cID)
+	binary.Read(readInt32, binary.BigEndian, &mID)
+	metadata := Metadata{ClientID: cID,
+		MsgId:     mID,
 		Timestamp: int64(binary.BigEndian.Uint64(msg[8:16])),
 	}
 	return metadata
@@ -53,7 +60,7 @@ func (m *Msg) Bytes() []byte {
 }
 
 //creates a new []byte representing the message
-func New(clientId uint32, msgId uint32, timestamp int64, msgLen int) (*Msg, error) {
+func New(clientId int32, msgId int32, timestamp int64, msgLen int) (*Msg, error) {
 
 	metadata := Metadata{
 		ClientID:  clientId,

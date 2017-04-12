@@ -108,6 +108,8 @@ func New(proto string, host string, port string, topic string, publisher bool) (
 		config.Producer.RequiredAcks = sarama.WaitForAll
 		config.Producer.MaxMessageBytes = 10000000
 		config.ChannelBufferSize = 1000000
+		config.Producer.Return.Errors = true
+		config.Producer.Return.Successes = true
 		prod, err := sarama.NewSyncProducer(kafkaAddresses, config)
 
 		client := &Kafka{Producer: prod, Consumer: con}

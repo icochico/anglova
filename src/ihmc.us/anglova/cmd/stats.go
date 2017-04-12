@@ -20,7 +20,7 @@ var statsCmd = &cobra.Command{
 		var err error
 
 		//use NATS by default to aggregate
-		subscriber, err = pubsub.NewSub(protocol.NATS, cfg.StatsAddress, cfg.StatsPort, "stats")
+		subscriber, err = pubsub.NewSub(protocol.NATS, cfg.StatsAddress, cfg.StatsPort, "", cfg.StatsAddress, cfg.StatsPort)
 		if err != nil {
 			log.Fatal("Unable to create subscriber", err)
 		}

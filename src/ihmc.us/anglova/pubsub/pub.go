@@ -2,35 +2,45 @@ package pubsub
 
 import (
 	"errors"
-	"github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
 	"github.com/streadway/amqp"
+	"ihmc.us/anglova/stats"
+	"github.com/gogo/protobuf/proto"
 	"ihmc.us/anglova/conn"
 	"ihmc.us/anglova/msg"
 	"ihmc.us/anglova/protocol"
 	"math/rand"
 	"sync/atomic"
 	"time"
+	"github.com/Shopify/sarama"
 )
 
 type Pub struct {
 	Protocol string
 	conn     conn.Conn
-	ID       uint32
+	statsConn conn.Conn
+	ID       int32
 }
 
-func NewPub(protocol string, host string, port string, topic string) (*Pub, error) {
-	id := rand.Uint32() + uint32(time.Now().Nanosecond())
+func NewPub(proto string, host string, port string, topic string, statsAddress string, statsPort string) (*Pub, error) {
+	id := rand.Int31()
 
 	//create the connection
-	connection, err := conn.New(protocol, host, port, topic, true)
+	connection, err := conn.New(proto, host, port, topic, true)
 	if err != nil {
 		log.Error("Error during the connection with the broker!")
 		return nil, err
 	}
-	return &Pub{Protocol: protocol,
-		ID:   id,
-		conn: *connection}, nil
+	//create the stats connection
+	sConnection, err := conn.New(protocol.NATS, statsAddress, statsPort, StatsTopic, true)
+	if err != nil {
+		log.Error("Error during the connection with the Stats broker!")
+		return nil, err
+	}
+	return &Pub{Protocol: proto,
+		ID:           id,
+		conn:         *connection,
+		statsConn: *sConnection}, nil
 }
 
 //implement the ping
@@ -38,7 +48,7 @@ func (pub *Pub) PublishSequence(topic string, messageNumber int, messageSize int
 
 	log.Info("PublishSequence ->")
 
-	var msgSentCount uint32 = 0
+	var msgSentCount int32 = 0
 	for i := 0; i < messageNumber; i++ {
 		msg, err := msg.New(pub.ID, msgSentCount, time.Now().UnixNano(), messageSize)
 		if err != nil {
@@ -47,12 +57,12 @@ func (pub *Pub) PublishSequence(topic string, messageNumber int, messageSize int
 		}
 
 		err = pub.Publish(topic, msg.Bytes())
-
+		pub.PublishStats(msgSentCount)
 		if err != nil {
 			log.Error("Unable to push the msg", err)
 		}
-		atomic.AddUint32(&msgSentCount, 1)
-		log.Info("Sent msg: msgId %d", atomic.LoadUint32(&msgSentCount))
+		atomic.AddInt32(&msgSentCount, 1)
+		log.Info("Sent msg: msgId ", atomic.LoadInt32(&msgSentCount))
 		time.Sleep(publishInterval)
 	}
 	return nil
@@ -80,7 +90,7 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 		token := pub.conn.MQTTClient.Publish(topic, 0, false, buf)
 		token.Wait()
 	case protocol.Kafka:
-		kafkaMessage := &sarama.ProducerMessage{Topic: topic, Value: sarama.ByteEncoder(buf)}
+		kafkaMessage := &sarama.ProducerMessage{Topic: topic, Value: sarama.ByteEncoder(buf), }
 		_, _, err = pub.conn.KafkaClient.Producer.SendMessage(kafkaMessage)
 	case protocol.IPFS:
 		err = pub.conn.IPFSClient.PubSubPublish(topic, string(buf[:]))
@@ -95,4 +105,22 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 	}
 
 	return err
+}
+
+
+func (pub *Pub) PublishStats(msgCount int32) {
+	stat := &stats.Stats{}
+	stat.ClientType = stats.ClientType_Publisher
+	stat.PublisherId = pub.ID
+	//log.Info("PublisherID: ", pub.ID)
+	stat.MessageId = msgCount
+	//log.Info("Publisher: about to send statistics", stat.PublisherId, stat.SubscriberId)
+	statBuf, err := proto.Marshal(stat)
+	if err != nil {
+		log.Error(err)
+	}
+	err = pub.statsConn.NATSClient.Publish(StatsTopic, statBuf)
+	if err != nil {
+		log.Error("Error sending stats to the HQ")
+	}
 }

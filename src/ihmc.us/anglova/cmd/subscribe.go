@@ -17,8 +17,7 @@ var subscribeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var sub *pubsub.Sub
 		var err error
-
-		sub, err = pubsub.NewSub(cfg.Protocol, cfg.BrokerAddress, cfg.BrokerPort, cfg.Topic)
+		sub, err = pubsub.NewSub(cfg.Protocol, cfg.BrokerAddress, cfg.BrokerPort, cfg.Topic, cfg.StatsAddress, cfg.StatsPort)
 		if err != nil {
 			log.Fatal("Unable to create sub", err)
 		}
