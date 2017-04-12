@@ -2,7 +2,7 @@ package pubsub
 
 import (
 	"errors"
-	_ "github.com/Shopify/sarama"
+	"github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
 	"github.com/streadway/amqp"
 	"ihmc.us/anglova/conn"
@@ -11,11 +11,6 @@ import (
 	"math/rand"
 	"sync/atomic"
 	"time"
-	//"github.com/Shopify/sarama"
-	"github.com/Shopify/sarama"
-	"ihmc.us/anglova/conn"
-	"ihmc.us/anglova/msg"
-	"ihmc.us/anglova/protocol"
 )
 
 type Pub struct {
@@ -28,7 +23,7 @@ func NewPub(protocol string, host string, port string, topic string) (*Pub, erro
 	id := rand.Uint32() + uint32(time.Now().Nanosecond())
 
 	//create the connection
-	connection, err := conn.New(protocol, host, port, topic)
+	connection, err := conn.New(protocol, host, port, topic, true)
 	if err != nil {
 		log.Error("Error during the connection with the broker!")
 		return nil, err
@@ -90,7 +85,7 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 	case protocol.IPFS:
 		err = pub.conn.IPFSClient.PubSubPublish(topic, string(buf[:]))
 	case protocol.ZMQ:
-		_, err = pub.conn.ZMQClient.Pub.Send(topic+" "+string(buf[:]), 0)
+		_, err = pub.conn.ZMQClient.SendMessage(topic, buf)
 	case protocol.Redis:
 		pub.conn.RedisClient.Lock()
 		pub.conn.RedisClient.Conn.Send("PUBLISH", topic, buf)

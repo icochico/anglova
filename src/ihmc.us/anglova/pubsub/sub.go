@@ -3,6 +3,7 @@ package pubsub
 import (
 	"errors"
 	"fmt"
+	"github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
 	"github.com/eclipse/paho.mqtt.golang"
 	"github.com/garyburd/redigo/redis"
@@ -15,9 +16,6 @@ import (
 	"math/rand"
 	"strings"
 	"time"
-	//"github.com/Shopify/sarama"
-	"github.com/Shopify/sarama"
-	"github.com/golang/protobuf/proto"
 )
 
 const StatsTopic = "stats"
@@ -32,7 +30,7 @@ type Sub struct {
 func NewSub(protocol string, host string, port string, topic string) (*Sub, error) {
 
 	id := rand.Uint32() + uint32(time.Now().Nanosecond())
-	conn, err := conn.New(protocol, host, port, topic)
+	conn, err := conn.New(protocol, host, port, topic, false)
 	if err != nil {
 		log.Error("Error during the connection with the broker!")
 		return nil, err
@@ -176,13 +174,17 @@ func (sub Sub) Subscribe(topic string) error {
 		}
 		<-quit
 	case protocol.ZMQ:
-		err := sub.conn.ZMQClient.Sub.SetSubscribe(topic)
+		err := sub.conn.ZMQClient.SetSubscribe(topic)
 		if err != nil {
 			return err
 		}
-		for message, err := sub.conn.ZMQClient.Sub.Recv(0); err != nil; {
-			parts := strings.SplitN(string(message), " ", 2)
-			handleSubTest(sub, []byte(parts[1]), imsgRcvCount, statmap)
+		for {
+			message, err := sub.conn.ZMQClient.RecvMessageBytes(0)
+			if err != nil {
+				log.Fatal("Error receiving messages", err)
+				break
+			}
+			handleSubTest(sub, message[1], imsgRcvCount, statmap)
 		}
 		<-quit
 	case protocol.Redis:
