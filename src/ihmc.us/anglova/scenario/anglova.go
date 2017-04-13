@@ -37,11 +37,6 @@ func (a *Anglova) Run() {
 
 	var quitChannels []chan bool
 
-	//for statistics, use nats
-	pubStats, err := pubsub.NewPub(protocol.NATS, a.Cfg.StatsAddress, a.Cfg.StatsPort, "", a.Cfg.StatsAddress, a.Cfg.StatsPort)
-	if err != nil {
-		log.Error(err)
-	}
 	//TODO verify if using one shared publisher for stats is goroutine safe
 
 	if a.Cfg.EnableBlueForce {
@@ -51,7 +46,7 @@ func (a *Anglova) Run() {
 		if err != nil {
 			log.Error(err)
 		}
-		blueForcePublishRoutine(pubBF, pubStats, quitBF)
+		blueForcePublishRoutine(pubBF, quitBF)
 	}
 
 	if a.Cfg.EnableSensorData {
@@ -61,7 +56,7 @@ func (a *Anglova) Run() {
 		if err != nil {
 			log.Error(err)
 		}
-		sensorDataPublishRoutine(pubSD, pubStats, quitSD)
+		sensorDataPublishRoutine(pubSD, quitSD)
 	}
 
 	if a.Cfg.EnableHQReport {
@@ -71,7 +66,7 @@ func (a *Anglova) Run() {
 		if err != nil {
 			log.Error(err)
 		}
-		hqReportPublishRoutine(pubHQ, pubStats, quitHQ)
+		hqReportPublishRoutine(pubHQ, quitHQ)
 
 	}
 
@@ -87,7 +82,7 @@ func (a *Anglova) Run() {
 
 }
 
-func blueForcePublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan bool) {
+func blueForcePublishRoutine(pub *pubsub.Pub, quit chan bool) {
 	ticker := time.NewTicker(time.Second * BlueForceTrackInterval)
 	var msgCount int32
 	go func() {
@@ -109,7 +104,7 @@ func blueForcePublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan bo
 	}()
 }
 
-func sensorDataPublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan bool) {
+func sensorDataPublishRoutine(pub *pubsub.Pub, quit chan bool) {
 	ticker := time.NewTicker(time.Second * SensorDataInterval)
 	var msgCount int32
 	go func() {
@@ -131,7 +126,7 @@ func sensorDataPublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan b
 	}()
 }
 
-func hqReportPublishRoutine(pub *pubsub.Pub, pubStats *pubsub.Pub, quit chan bool) {
+func hqReportPublishRoutine(pub *pubsub.Pub, quit chan bool) {
 
 	ticker := time.NewTicker(time.Second * HQReportInterval)
 	var msgCount int32
