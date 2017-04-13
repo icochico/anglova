@@ -32,10 +32,16 @@ type Sub struct {
 	Topic     string
 }
 
-//lock to sync the reading and writing operation on the below maps
+//lock to sync the reading and writing operations on the below maps
 var lock = sync.RWMutex{}
-//PubID MsgId SentTime
-var sentTimes = make(map[int32]map[int32]time.Time)
+//struct msgInfo that contains the sentTime and the msgSize
+type msgInfo struct {
+	sentTime    time.Time
+	messageSize int32
+}
+
+//PubID MsgId msgInfo
+var sentTimes = make(map[int32]map[int32]msgInfo)
 //PubId MsgID SubID RcvTime
 var rcvTimes = make(map[int32]map[int32]map[int32]time.Time)
 
@@ -88,9 +94,12 @@ func handleStatInfo(sub *Sub, quit chan bool) error {
 		if s.ClientType == stats.ClientType_Publisher {
 			log.Debug("Received statistics from publisher: ", s.PublisherId, s.SubscriberId, s.MessageId)
 			if len(sentTimes[s.PublisherId]) == 0 {
-				sentTimes[s.PublisherId] = make(map[int32]time.Time)
+				sentTimes[s.PublisherId] = make(map[int32]msgInfo)
 			}
-			sentTimes[s.PublisherId][s.MessageId] = time.Now()
+			sentTimes[s.PublisherId][s.MessageId] = msgInfo{
+				sentTime:    time.Now(),
+				messageSize: s.MessageSize,
+			}
 		} else {
 			fmt.Println("Received statistics from subscriber: ", s.PublisherId, s.SubscriberId, s.MessageId)
 			if len(rcvTimes[s.PublisherId]) == 0 {
@@ -123,11 +132,12 @@ func handleStatGen(quit chan bool) {
 				var totalDelayForMessage int64
 				var reachedSubscribers int32
 				for _, rTime := range subs {
-					totalDelayForMessage += (rTime.UnixNano() - sentTimes[pubID][msgID].UnixNano()) / 1e6
+					totalDelayForMessage += (rTime.UnixNano() - sentTimes[pubID][msgID].sentTime.UnixNano()) / 1e6
 					reachedSubscribers++
 				}
-				fmt.Println("PubId", pubID, "MsgId ", msgID, "MsgDelay ", totalDelayForMessage, "ReachedSubs ", reachedSubscribers)
-				res := []string{strconv.FormatInt(int64(pubID), 10), strconv.FormatInt(int64(msgID), 10),
+				msgSize := sentTimes[pubID][msgID].messageSize
+				fmt.Println("PubId", pubID, "MsgId ", msgID, "MsgSize", msgSize, "TotalDelayForMsg ", totalDelayForMessage, "ReachedSubs ", reachedSubscribers)
+				res := []string{strconv.FormatInt(int64(pubID), 10), strconv.FormatInt(int64(msgID), 10), strconv.FormatInt(int64(msgSize), 10),
 						strconv.FormatInt(int64(totalDelayForMessage), 10), strconv.FormatInt(int64(reachedSubscribers), 10)}
 				//log.Info("results: ", res)
 				err := writer.Write(res)

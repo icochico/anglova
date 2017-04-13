@@ -57,7 +57,7 @@ func (pub *Pub) PublishSequence(topic string, messageNumber int, messageSize int
 		}
 
 		err = pub.Publish(topic, msg.Bytes())
-		pub.PublishStats(msgSentCount)
+		pub.PublishStats(msgSentCount, int32(messageSize))
 		if err != nil {
 			log.Error("Unable to push the msg", err)
 		}
@@ -115,12 +115,13 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 	return err
 }
 
-func (pub *Pub) PublishStats(msgCount int32) {
+func (pub *Pub) PublishStats(msgCount int32, msgSize int32) {
 	stat := &stats.Stats{}
 	stat.ClientType = stats.ClientType_Publisher
 	stat.PublisherId = pub.ID
 	//log.Info("PublisherID: ", pub.ID)
 	stat.MessageId = msgCount
+	stat.MessageSize = msgSize
 	//log.Info("Publisher: about to send statistics", stat.PublisherId, stat.SubscriberId)
 	statBuf, err := proto.Marshal(stat)
 	if err != nil {
