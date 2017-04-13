@@ -2,24 +2,24 @@ package pubsub
 
 import (
 	"errors"
+	"github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
-	"github.com/streadway/amqp"
-	"ihmc.us/anglova/stats"
 	"github.com/gogo/protobuf/proto"
+	"github.com/streadway/amqp"
 	"ihmc.us/anglova/conn"
 	"ihmc.us/anglova/msg"
 	"ihmc.us/anglova/protocol"
+	"ihmc.us/anglova/stats"
 	"math/rand"
 	"sync/atomic"
 	"time"
-	"github.com/Shopify/sarama"
 )
 
 type Pub struct {
-	Protocol string
-	conn     conn.Conn
+	Protocol  string
+	conn      conn.Conn
 	statsConn conn.Conn
-	ID       int32
+	ID        int32
 }
 
 func NewPub(proto string, host string, port string, topic string, statsAddress string, statsPort string) (*Pub, error) {
@@ -38,8 +38,8 @@ func NewPub(proto string, host string, port string, topic string, statsAddress s
 		return nil, err
 	}
 	return &Pub{Protocol: proto,
-		ID:           id,
-		conn:         *connection,
+		ID:        id,
+		conn:      *connection,
 		statsConn: *sConnection}, nil
 }
 
@@ -65,6 +65,14 @@ func (pub *Pub) PublishSequence(topic string, messageNumber int, messageSize int
 		log.Info("Sent msg: msgId ", atomic.LoadInt32(&msgSentCount))
 		time.Sleep(publishInterval)
 	}
+
+	// Make sure that Redis flushes its buffer after sending the messages
+	if pub.Protocol == protocol.Redis {
+		pub.conn.RedisClient.Lock()
+		pub.conn.RedisClient.Conn.Flush()
+		pub.conn.RedisClient.Unlock()
+	}
+
 	return nil
 }
 
@@ -90,7 +98,7 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 		token := pub.conn.MQTTClient.Publish(topic, 0, false, buf)
 		token.Wait()
 	case protocol.Kafka:
-		kafkaMessage := &sarama.ProducerMessage{Topic: topic, Value: sarama.ByteEncoder(buf), }
+		kafkaMessage := &sarama.ProducerMessage{Topic: topic, Value: sarama.ByteEncoder(buf)}
 		_, _, err = pub.conn.KafkaClient.Producer.SendMessage(kafkaMessage)
 	case protocol.IPFS:
 		err = pub.conn.IPFSClient.PubSubPublish(topic, string(buf[:]))
@@ -106,7 +114,6 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 
 	return err
 }
-
 
 func (pub *Pub) PublishStats(msgCount int32) {
 	stat := &stats.Stats{}
