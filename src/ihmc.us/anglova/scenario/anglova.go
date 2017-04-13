@@ -6,7 +6,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"ihmc.us/anglova/config"
 	"ihmc.us/anglova/msg"
-	"ihmc.us/anglova/protocol"
 )
 
 type Anglova struct {
