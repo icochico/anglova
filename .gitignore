@@ -4,3 +4,4 @@ src/github.com/
 src/golang.org/
 src/gopkg.in/
 src/leb.io/
+*.csv

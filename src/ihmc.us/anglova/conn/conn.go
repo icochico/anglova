@@ -159,14 +159,19 @@ func New(proto string, host string, port string, topic string, publisher bool) (
 		conn, _ := redis.Dial("tcp", redisHost)
 		pubsub, _ := redis.Dial("tcp", redisHost)
 		client := Redis{conn, redis.PubSubConn{pubsub}, sync.Mutex{}}
-		go func() {
-			for {
-				time.Sleep(200 * time.Millisecond)
-				client.Lock()
-				client.Conn.Flush()
-				client.Unlock()
-			}
-		}()
+
+		if publisher {
+			// only flush buffers every 200ms when publishing
+			go func() {
+				for {
+					time.Sleep(200 * time.Millisecond)
+					client.Lock()
+					client.Conn.Flush()
+					client.Unlock()
+				}
+			}()
+		}
+
 		return &Conn{Protocol: proto, RedisClient: client}, nil
 	default:
 		return nil, errors.New("No ConnType speficied")
