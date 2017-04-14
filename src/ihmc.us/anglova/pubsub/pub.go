@@ -43,7 +43,7 @@ func CreateNodeID() (int32, error){
 			var ip net.IP
 			switch v := addr.(type) {
 			case *net.IPNet:
-				continue
+				ip = v.IP
 			case *net.IPAddr:
 				ip = v.IP
 			}
