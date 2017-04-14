@@ -13,6 +13,9 @@ import (
 	"math/rand"
 	"sync/atomic"
 	"time"
+	"net"
+	"strings"
+	"strconv"
 )
 
 type Pub struct {
@@ -22,9 +25,47 @@ type Pub struct {
 	ID        int32
 }
 
-func NewPub(proto string, host string, port string, topic string, statsAddress string, statsPort string) (*Pub, error) {
-	id := rand.Int31()
+//this function returns the last three digits of the IP address
+//to create the nodeID. For the testbed configuration the 10.... class address will be used
+func CreateNodeID() (int32, error){
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		log.Error("Impossible to get the Interfaces")
+		return nil, err
+	}
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			log.Error("Error in getting the interface addresses")
+			return nil, err
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				continue
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip.To4() != nil {
+				var ipString string
+				ipString = ip.To4().String()
+				ipFour := strings.Split(ipString, ".")
+				if ipFour[0] == "10" {
+					return int32(strconv.Atoi(ipFour[3])), nil
+				}
+			}
+		}
+	}
+	return nil, errors.New("Impossible to create a nodeID")
+}
 
+func NewPub(proto string, host string, port string, topic string, statsAddress string, statsPort string) (*Pub, error) {
+	id, err := CreateNodeID()
+	if err != nil {
+		log.Error(err)
+		id = rand.Int31()
+	}
 	//create the connection
 	connection, err := conn.New(proto, host, port, topic, true)
 	if err != nil {

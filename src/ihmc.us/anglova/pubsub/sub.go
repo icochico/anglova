@@ -46,7 +46,11 @@ var sentTimes = make(map[int32]map[int32]msgInfo)
 var rcvTimes = make(map[int32]map[int32]map[int32]time.Time)
 
 func NewSub(proto string, host string, port string, topic string, statsHost string, statsPort string) (*Sub, error) {
-	id := rand.Int31()
+	id, err := CreateNodeID()
+	if err != nil {
+		log.Error(err)
+		id = rand.Int31()
+	}
 	connection, err := conn.New(proto, host, port, topic, false)
 	if err != nil {
 		log.Error("Error during the connection with the broker!")
