@@ -31,7 +31,7 @@ func CreateNodeID() (int32, error){
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		log.Error("Impossible to get the Interfaces")
-		return nil, err
+		return 0, err
 	}
 	for _, i := range ifaces {
 		addrs, err := i.Addrs()
@@ -52,12 +52,17 @@ func CreateNodeID() (int32, error){
 				ipString = ip.To4().String()
 				ipFour := strings.Split(ipString, ".")
 				if ipFour[0] == "10" {
-					return int32(strconv.Atoi(ipFour[3])), nil
+					nodeID, err := strconv.Atoi(ipFour[3])
+					if err != nil {
+						log.Error("Error in converting the IP string into an int")
+						return 0, err
+					}
+					return int32(nodeID), nil
 				}
 			}
 		}
 	}
-	return nil, errors.New("Impossible to create a nodeID")
+	return 0, errors.New("Impossible to create a nodeID")
 }
 
 func NewPub(proto string, host string, port string, topic string, statsAddress string, statsPort string) (*Pub, error) {
