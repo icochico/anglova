@@ -37,7 +37,7 @@ func CreateNodeID() (int32, error){
 		addrs, err := i.Addrs()
 		if err != nil {
 			log.Error("Error in getting the interface addresses")
-			return nil, err
+			return 0, err
 		}
 		for _, addr := range addrs {
 			var ip net.IP
