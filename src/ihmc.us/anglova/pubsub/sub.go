@@ -34,16 +34,11 @@ type Sub struct {
 
 //lock to sync the reading and writing operations on the below maps
 var lock = sync.RWMutex{}
-//struct msgInfo that contains the sentTime and the msgSize
-type msgInfo struct {
-	sentTime    time.Time
-	messageSize int32
-}
 
-//PubID MsgId msgInfo
-var sentTimes = make(map[int32]map[int32]msgInfo)
-//PubId MsgID SubID RcvTime
-var rcvTimes = make(map[int32]map[int32]map[int32]time.Time)
+//PubID MsgId MsgSize sentTime
+var sentTimes = make(map[int32]map[int32]map[int32]time.Time)
+//PubId MsgID MsgSize SubID RcvTime
+var rcvTimes = make(map[int32]map[int32]map[int32]map[int32]time.Time)
 
 func NewSub(proto string, host string, port string, topic string, statsHost string, statsPort string) (*Sub, error) {
 	id, err := CreateNodeID()
@@ -98,21 +93,24 @@ func handleStatInfo(sub *Sub, quit chan bool) error {
 		if s.ClientType == stats.ClientType_Publisher {
 			log.Debug("Received statistics from publisher: ", s.PublisherId, s.SubscriberId, s.MessageId)
 			if len(sentTimes[s.PublisherId]) == 0 {
-				sentTimes[s.PublisherId] = make(map[int32]msgInfo)
+				sentTimes[s.PublisherId] = make(map[int32]map[int32]time.Time)
 			}
-			sentTimes[s.PublisherId][s.MessageId] = msgInfo{
-				sentTime:    time.Now(),
-				messageSize: s.MessageSize,
+			if len(sentTimes[s.PublisherId][s.MessageId]) == 0 {
+				sentTimes[s.PublisherId][s.MessageId] = make(map[int32]time.Time)
 			}
+			sentTimes[s.PublisherId][s.MessageId][s.MessageSize] = time.Now()
 		} else {
 			fmt.Println("Received statistics from subscriber: ", s.PublisherId, s.SubscriberId, s.MessageId)
 			if len(rcvTimes[s.PublisherId]) == 0 {
-				rcvTimes[s.PublisherId] = make(map[int32]map[int32]time.Time)
+				rcvTimes[s.PublisherId] = make(map[int32]map[int32]map[int32]time.Time)
 			}
 			if len(rcvTimes[s.PublisherId][s.MessageId]) == 0 {
-				rcvTimes[s.PublisherId][s.MessageId] = make(map[int32]time.Time)
+				rcvTimes[s.PublisherId][s.MessageId] = make(map[int32]map[int32]time.Time)
 			}
-			rcvTimes[s.PublisherId][s.MessageId][s.SubscriberId] = time.Now()
+			if len(rcvTimes[s.PublisherId][s.MessageId][s.MessageSize]) == 0 {
+				rcvTimes[s.PublisherId][s.MessageId][s.MessageSize] = make(map[int32]time.Time)
+			}
+			rcvTimes[s.PublisherId][s.MessageId][s.MessageSize][s.SubscriberId] = time.Now()
 		}
 		lock.Unlock()
 	})
@@ -132,23 +130,24 @@ func handleStatGen(quit chan bool) {
 		for pubID, msgs := range rcvTimes {
 			//log.Info("Pubs: ", msgs)
 			fmt.Println("\n\nSUMMARY")
-			for msgID, subs := range msgs {
+			for msgID, msgSizes := range msgs {
 				var totalDelayForMessage int64
 				var reachedSubscribers int32
-				for _, rTime := range subs {
-					totalDelayForMessage += (rTime.UnixNano() - sentTimes[pubID][msgID].sentTime.UnixNano()) / 1e6
-					reachedSubscribers++
+				for size, subs := range msgSizes {
+					for _, rTime := range subs {
+						totalDelayForMessage += (rTime.UnixNano() - sentTimes[pubID][msgID][size].UnixNano()) / 1e6
+						reachedSubscribers++
+					}
+					fmt.Println("PubId", pubID, "MsgId ", msgID, "MsgSize", size, "TotalDelayForMsg ", totalDelayForMessage, "ReachedSubs ", reachedSubscribers)
+					res := []string{strconv.FormatInt(int64(pubID), 10), strconv.FormatInt(int64(msgID), 10), strconv.FormatInt(int64(size), 10),
+							strconv.FormatInt(int64(totalDelayForMessage), 10), strconv.FormatInt(int64(reachedSubscribers), 10)}
+					//log.Info("results: ", res)
+					err := writer.Write(res)
+					if err != nil {
+						log.Error("Impossible to write on the CSV file")
+					}
+					writer.Flush()
 				}
-				msgSize := sentTimes[pubID][msgID].messageSize
-				fmt.Println("PubId", pubID, "MsgId ", msgID, "MsgSize", msgSize, "TotalDelayForMsg ", totalDelayForMessage, "ReachedSubs ", reachedSubscribers)
-				res := []string{strconv.FormatInt(int64(pubID), 10), strconv.FormatInt(int64(msgID), 10), strconv.FormatInt(int64(msgSize), 10),
-						strconv.FormatInt(int64(totalDelayForMessage), 10), strconv.FormatInt(int64(reachedSubscribers), 10)}
-				//log.Info("results: ", res)
-				err := writer.Write(res)
-				if err != nil {
-					log.Error("Impossible to write on the CSV file")
-				}
-				writer.Flush()
 			}
 			fmt.Println("\n\nEND SUMMARY\n\n")
 		}

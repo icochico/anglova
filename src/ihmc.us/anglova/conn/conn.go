@@ -17,6 +17,7 @@ import (
 	"time"
 )
 
+const MAXRECONN = 150
 type Kafka struct {
 	Producer sarama.SyncProducer
 	Consumer sarama.Consumer
@@ -84,7 +85,8 @@ func New(proto string, host string, port string, topic string, publisher bool) (
 		}
 		return &Conn{Protocol: proto, RabbitMQClient: *channel}, nil
 	case protocol.NATS:
-		nconn, err := nats.Connect(proto + "://" + host + ":" + port)
+		//nats try to reconnect 150 times with every 2 seconds
+		nconn, err := nats.Connect(proto + "://" + host + ":" + port, nats.MaxReconnects(150), nats.ReconnectWait(2 * time.Second))
 		if err != nil {
 			return nil, errors.New("Unable to establish a connection with NATS broker")
 		}
@@ -92,7 +94,19 @@ func New(proto string, host string, port string, topic string, publisher bool) (
 	case protocol.MQTT:
 		opts := mqtt.NewClientOptions().AddBroker("tcp://" + host + ":" + port)
 		mqttConn := mqtt.NewClient(opts)
-		if token := mqttConn.Connect(); token.Wait() && token.Error() != nil {
+		var token mqtt.Token
+		if token = mqttConn.Connect(); token.Wait() && token.Error() != nil {
+			//return nil, errors.New("Unable to establish a connection with MQTTLib broker")
+			for checkConn := 0; checkConn < MAXRECONN; checkConn++ {
+				token = mqttConn.Connect()
+				token.Wait()
+				if token.Error() == nil {
+					break
+				}
+			}
+		}
+		//check the connection
+		if token.Error() != nil {
 			return nil, errors.New("Unable to establish a connection with MQTTLib broker")
 		}
 		return &Conn{Protocol: proto, MQTTClient: mqttConn}, nil
