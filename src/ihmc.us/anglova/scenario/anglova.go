@@ -93,7 +93,6 @@ func blueForcePublishRoutine(pub *pubsub.Pub, quit chan bool) {
 					log.Error(err)
 				}
 				pub.Publish(BlueForceTopic, message.Bytes())
-				pub.PublishStats(msgCount, int32(len(message.Bytes())))
 				msgCount++
 			case <-quit:
 				ticker.Stop()
@@ -115,7 +114,6 @@ func sensorDataPublishRoutine(pub *pubsub.Pub, quit chan bool) {
 					log.Error(err)
 				}
 				pub.Publish(SensorDataTopic, message.Bytes())
-				pub.PublishStats(msgCount, int32(len(message.Bytes())))
 				msgCount++
 			case <-quit:
 				ticker.Stop()
@@ -138,7 +136,6 @@ func hqReportPublishRoutine(pub *pubsub.Pub, quit chan bool) {
 					log.Error(err)
 				}
 				pub.Publish(HQReportTopic, message.Bytes(), )
-				pub.PublishStats(msgCount, int32(len(message.Bytes())))
 				msgCount++
 			case <-quit:
 				ticker.Stop()

@@ -103,7 +103,6 @@ func (pub *Pub) PublishSequence(topic string, messageNumber int, messageSize int
 		}
 
 		err = pub.Publish(topic, msg.Bytes())
-		pub.PublishStats(msgSentCount, int32(messageSize))
 		if err != nil {
 			log.Error("Unable to push the msg", err)
 		}
@@ -124,7 +123,7 @@ func (pub *Pub) PublishSequence(topic string, messageNumber int, messageSize int
 
 func (pub *Pub) Publish(topic string, buf []byte) error {
 	var err error
-
+	msgId := msg.ParseMetadata(buf).MsgId
 	switch pub.Protocol {
 	case protocol.NATS:
 		err = pub.conn.NATSClient.Publish(topic, buf)
@@ -157,7 +156,9 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 	default:
 		return errors.New("Unsupported protocol")
 	}
-
+	if err == nil {
+		pub.PublishStats(msgId, int32(len(buf)))
+	}
 	return err
 }
 
