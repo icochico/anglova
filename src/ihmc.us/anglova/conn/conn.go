@@ -86,7 +86,17 @@ func New(proto string, host string, port string, topic string, publisher bool) (
 		return &Conn{Protocol: proto, RabbitMQClient: *channel}, nil
 	case protocol.NATS:
 		//nats try to reconnect 150 times with every 2 seconds
-		nconn, err := nats.Connect(proto + "://" + host + ":" + port, nats.MaxReconnects(150), nats.ReconnectWait(2 * time.Second))
+		nconn, err := nats.Connect(proto + "://" + host + ":" + port)
+		if err != nil {
+			for checkConn := 0; checkConn < MAXRECONN; checkConn++ {
+				time.Sleep(2 * time.Second)
+				log.Info("Connection attempt: ", checkConn)
+				nconn, err = nats.Connect(proto + "://" + host + ":" + port)
+				if err == nil {
+					break
+				}
+			}
+		}
 		if err != nil {
 			return nil, errors.New("Unable to establish a connection with NATS broker")
 		}
@@ -98,6 +108,8 @@ func New(proto string, host string, port string, topic string, publisher bool) (
 		if token = mqttConn.Connect(); token.Wait() && token.Error() != nil {
 			//return nil, errors.New("Unable to establish a connection with MQTTLib broker")
 			for checkConn := 0; checkConn < MAXRECONN; checkConn++ {
+				time.Sleep(2 * time.Second)
+				log.Info("Connection attempt: ", checkConn)
 				token = mqttConn.Connect()
 				token.Wait()
 				if token.Error() == nil {
