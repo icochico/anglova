@@ -131,9 +131,9 @@ func handleStatGen(quit chan bool) {
 			//log.Info("Pubs: ", msgs)
 			fmt.Println("\n\nSUMMARY")
 			for msgID, msgSizes := range msgs {
-				var totalDelayForMessage int64
-				var reachedSubscribers int32
 				for size, subs := range msgSizes {
+					var totalDelayForMessage int64
+					var reachedSubscribers int32
 					for _, rTime := range subs {
 						totalDelayForMessage += (rTime.UnixNano() - sentTimes[pubID][msgID][size].UnixNano()) / 1e6
 						reachedSubscribers++
