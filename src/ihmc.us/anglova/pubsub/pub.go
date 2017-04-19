@@ -23,11 +23,15 @@ type Pub struct {
 	conn      conn.Conn
 	statsConn conn.Conn
 	ID        int32
+	host      string
+	port      string
+	statsAddr string
+	statsPort string
 }
 
 //this function returns the last three digits of the IP address
 //to create the nodeID. For the testbed configuration the 10.... class address will be used
-func CreateNodeID() (int32, error){
+func CreateNodeID() (int32, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		log.Error("Impossible to get the Interfaces")
@@ -84,9 +88,13 @@ func NewPub(proto string, host string, port string, topic string, statsAddress s
 		return nil, err
 	}
 	return &Pub{Protocol: proto,
-		ID:        id,
-		conn:      *connection,
-		statsConn: *sConnection}, nil
+		ID:           id,
+		conn:         *connection,
+		statsConn:    *sConnection,
+		host:         host,
+		port:         port,
+		statsAddr:    statsAddress,
+		statsPort:    statsPort, }, nil
 }
 
 //implement the ping
@@ -158,8 +166,13 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 	}
 	if err == nil {
 		pub.PublishStats(msgId, int32(len(buf)))
+		return nil
+	} else {
+		//try to reestablish the connection
+		connection, err := conn.New(pub.Protocol, pub.host, pub.port, topic, true)
+		pub.conn = *connection
+		return err
 	}
-	return err
 }
 
 func (pub *Pub) PublishStats(msgCount int32, msgSize int32) {
@@ -177,5 +190,9 @@ func (pub *Pub) PublishStats(msgCount int32, msgSize int32) {
 	err = pub.statsConn.NATSClient.Publish(StatsTopic, statBuf)
 	if err != nil {
 		log.Error("Error sending stats to the HQ")
+	} else{
+		//try to reestablish the stats connection
+		connection, _ := conn.New(pub.Protocol, pub.statsAddr, pub.statsPort, StatsTopic, true)
+		pub.statsConn = *connection
 	}
 }

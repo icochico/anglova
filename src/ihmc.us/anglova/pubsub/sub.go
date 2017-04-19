@@ -30,6 +30,10 @@ type Sub struct {
 	statsConn conn.Conn
 	ID        int32
 	Topic     string
+	host      string
+	port      string
+	statsAddr string
+	statsPort string
 }
 
 //lock to sync the reading and writing operations on the below maps
@@ -40,7 +44,7 @@ var sentTimes = make(map[int32]map[int32]map[int32]time.Time)
 //PubId MsgID MsgSize SubID RcvTime
 var rcvTimes = make(map[int32]map[int32]map[int32]map[int32]time.Time)
 
-func NewSub(proto string, host string, port string, topic string, statsHost string, statsPort string) (*Sub, error) {
+func NewSub(proto string, host string, port string, topic string, statsAddress string, statsPort string) (*Sub, error) {
 	id, err := CreateNodeID()
 	if err != nil {
 		log.Error(err)
@@ -51,7 +55,7 @@ func NewSub(proto string, host string, port string, topic string, statsHost stri
 		log.Error("Error during the connection with the broker!")
 		return nil, err
 	}
-	sConn, err := conn.New(protocol.NATS, statsHost, statsPort, StatsTopic, true)
+	sConn, err := conn.New(protocol.NATS, statsAddress, statsPort, StatsTopic, true)
 	if err != nil {
 		log.Error("Error during the connection with the stats broker!")
 		return nil, err
@@ -60,7 +64,11 @@ func NewSub(proto string, host string, port string, topic string, statsHost stri
 		conn:         *connection,
 		statsConn:    *sConn,
 		ID:           id,
-		Topic:        topic}, nil
+		Topic:        topic,
+		host:         host,
+		port:         port,
+		statsAddr:    statsAddress,
+		statsPort:    statsPort, }, nil
 }
 
 //stats server function
@@ -121,7 +129,7 @@ func handleStatInfo(sub *Sub, quit chan bool) error {
 func handleStatGen(quit chan bool) {
 	//print the result on a CSV file periodically (60 seconds)
 	for {
-		file, err := os.Create("TimeResults.csv" )
+		file, err := os.Create("TimeResults.csv")
 		if err != nil {
 			log.Error("Impossible to create the csv File")
 		}
@@ -312,7 +320,7 @@ func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg
 			mstat.OutOfOrderMsgs++
 		}
 		statmap[metaData.ClientID] = mstat
-		log.Info(" Received message: clientId ", metaData.ClientID," msgSize ",  len(data), " MsgId ",  metaData.MsgId,
+		log.Info(" Received message: clientId ", metaData.ClientID, " msgSize ", len(data), " MsgId ", metaData.MsgId,
 			"Total Received messages", imsgRcvCount, " ReceivedDelay(ms) ", delay, "OutofOrder: ", outOfOrder)
 		//send the msg info to the stats server
 		stat := &stats.Stats{}
@@ -329,6 +337,11 @@ func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg
 		err = sub.statsConn.NATSClient.Publish(StatsTopic, buf)
 		if err != nil {
 			log.Error("Impossible to send the msg Info to the stats broker")
+		} else {
+			//reconnect to the stats server
+			//try to reestablish the connection
+			connection, _ := conn.New(sub.Protocol, sub.statsAddr, sub.statsPort, StatsTopic, false)
+			sub.statsConn = *connection
 		}
 	}
 }
@@ -349,8 +362,8 @@ func printTestStat(statmap map[int32]msg.Statistics) {
 			fmt.Printf("\n\n\n\n" + strings.Repeat("#", 80))
 			fmt.Printf("\n\t\tSTAT SUMMARY\n\n")
 			for clientId, clientStat := range statmap {
-				fmt.Printf("ClientId: %d  ReceveidMsg: %d CumulativeDelay: %d ms  OutOfOrderMsgs: %d\n",clientId,
-					 clientStat.ReceivedMsg, clientStat.CumulativeDelay, clientStat.OutOfOrderMsgs)
+				fmt.Printf("ClientId: %d  ReceveidMsg: %d CumulativeDelay: %d ms  OutOfOrderMsgs: %d\n", clientId,
+					clientStat.ReceivedMsg, clientStat.CumulativeDelay, clientStat.OutOfOrderMsgs)
 				res := []string{strconv.FormatInt(int64(clientId), 10), strconv.FormatInt(int64(clientStat.ReceivedMsg), 10),
 						strconv.FormatInt(int64(clientStat.CumulativeDelay), 10), strconv.FormatInt(int64(clientStat.OutOfOrderMsgs), 10)}
 				writer.Write(res)
