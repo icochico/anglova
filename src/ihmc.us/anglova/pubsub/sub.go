@@ -320,7 +320,7 @@ func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg
 		stat.PublisherId = metaData.ClientID
 		stat.SubscriberId = sub.ID
 		stat.MessageId = metaData.MsgId
-		stat.MessageSize = len(data)
+		stat.MessageSize = int32(len(data))
 		buf, err := proto.Marshal(stat)
 		if err != nil {
 			log.Error("Impossible to Marshal the stat message")
