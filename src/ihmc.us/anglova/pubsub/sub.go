@@ -355,25 +355,25 @@ func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg
 // the correct cumulative delay may be found on the stat server
 func printTestStat(statmap map[int32]msg.Statistics) {
 	for {
-		resFile, err := os.Create("nodeStats.csv")
+		/*resFile, err := os.Create("nodeStats.csv")
 		writer := csv.NewWriter(resFile)
 		if err != nil {
 			log.Error("Error in creating the csv file for the node stat results")
 			//terminate this gorutine
 			return
-		}
+		}*/
 		if len(statmap) != 0 {
 			fmt.Printf("\n\n\n\n" + strings.Repeat("#", 80))
 			fmt.Printf("\n\t\tSTAT SUMMARY\n\n")
 			for clientId, clientStat := range statmap {
 				fmt.Printf("ClientId: %d  ReceveidMsg: %d CumulativeDelay: %d ms  OutOfOrderMsgs: %d\n", clientId,
 					clientStat.ReceivedMsg, clientStat.CumulativeDelay, clientStat.OutOfOrderMsgs)
-				res := []string{strconv.FormatInt(int64(clientId), 10), strconv.FormatInt(int64(clientStat.ReceivedMsg), 10),
+				//res := []string{strconv.FormatInt(int64(clientId), 10), strconv.FormatInt(int64(clientStat.ReceivedMsg), 10),
 						strconv.FormatInt(int64(clientStat.CumulativeDelay), 10), strconv.FormatInt(int64(clientStat.OutOfOrderMsgs), 10)}
-				writer.Write(res)
-				writer.Flush()
+				//writer.Write(res)
+				//writer.Flush()
 			}
-			resFile.Close()
+			//resFile.Close()
 			fmt.Printf("\n\n\n\n")
 			fmt.Printf(strings.Repeat("#", 80) + "\n")
 			time.Sleep(2000 * time.Millisecond)

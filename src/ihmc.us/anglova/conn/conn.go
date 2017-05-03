@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const MAXRECONN = 150
+const MAXRECONN = 15000
 type Kafka struct {
 	Producer sarama.SyncProducer
 	Consumer sarama.Consumer
