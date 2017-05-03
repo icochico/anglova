@@ -168,10 +168,8 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 		pub.PublishStats(msgId, int32(len(buf)))
 		return nil
 	} else {
-		//try to reestablish the connection
-		connection, err := conn.New(pub.Protocol, pub.host, pub.port, topic, true)
-		pub.conn = *connection
-		return err
+		//return nil anyway
+		return nil
 	}
 }
 
@@ -190,9 +188,5 @@ func (pub *Pub) PublishStats(msgCount int32, msgSize int32) {
 	err = pub.statsConn.NATSClient.Publish(StatsTopic, statBuf)
 	if err != nil {
 		log.Error("Error sending stats to the HQ")
-	} else{
-		//try to reestablish the stats connection
-		connection, _ := conn.New(pub.Protocol, pub.statsAddr, pub.statsPort, StatsTopic, true)
-		pub.statsConn = *connection
 	}
 }

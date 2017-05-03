@@ -341,12 +341,7 @@ func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg
 		err = sub.statsConn.NATSClient.Publish(StatsTopic, buf)
 		if err != nil {
 			log.Error("Impossible to send the msg Info to the stats broker")
-		} else {
-			//reconnect to the stats server
-			//try to reestablish the connection
-			connection, _ := conn.New(sub.Protocol, sub.statsAddr, sub.statsPort, StatsTopic, false)
-			sub.statsConn = *connection
-		}
+		} 
 	}
 }
 
@@ -366,7 +361,7 @@ func printTestStat(statmap map[int32]msg.Statistics) {
 			fmt.Printf("\n\n\n\n" + strings.Repeat("#", 80))
 			fmt.Printf("\n\t\tSTAT SUMMARY\n\n")
 			for clientId, clientStat := range statmap {
-				fmt.Printf("ClientId: %d  ReceveidMsg: %d CumulativeDelay: %d ms  OutOfOrderMsgs: %d\n", clientId,
+				fmt.Println("ClientId: %d  ReceveidMsg: %d CumulativeDelay: %d ms  OutOfOrderMsgs: %d\n", clientId,
 					clientStat.ReceivedMsg, clientStat.CumulativeDelay, clientStat.OutOfOrderMsgs)
 				//res := []string{strconv.FormatInt(int64(clientId), 10), strconv.FormatInt(int64(clientStat.ReceivedMsg), 10),
 						//strconv.FormatInt(int64(clientStat.CumulativeDelay), 10), strconv.FormatInt(int64(clientStat.OutOfOrderMsgs), 10)}

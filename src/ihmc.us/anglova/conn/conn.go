@@ -86,7 +86,7 @@ func New(proto string, host string, port string, topic string, publisher bool) (
 		return &Conn{Protocol: proto, RabbitMQClient: *channel}, nil
 	case protocol.NATS:
 		//nats try to reconnect 150 times with every 2 seconds
-		nconn, err := nats.Connect(proto + "://" + host + ":" + port)
+		nconn, err := nats.Connect(proto + "://" + host + ":" + port, nats.MaxReconnects(1000), nats.ReconnectWait(2 * time.Second))
 		if err != nil {
 			for checkConn := 0; checkConn < MAXRECONN; checkConn++ {
 				time.Sleep(2 * time.Second)
