@@ -369,7 +369,7 @@ func printTestStat(statmap map[int32]msg.Statistics) {
 				fmt.Printf("ClientId: %d  ReceveidMsg: %d CumulativeDelay: %d ms  OutOfOrderMsgs: %d\n", clientId,
 					clientStat.ReceivedMsg, clientStat.CumulativeDelay, clientStat.OutOfOrderMsgs)
 				//res := []string{strconv.FormatInt(int64(clientId), 10), strconv.FormatInt(int64(clientStat.ReceivedMsg), 10),
-						strconv.FormatInt(int64(clientStat.CumulativeDelay), 10), strconv.FormatInt(int64(clientStat.OutOfOrderMsgs), 10)}
+						//strconv.FormatInt(int64(clientStat.CumulativeDelay), 10), strconv.FormatInt(int64(clientStat.OutOfOrderMsgs), 10)}
 				//writer.Write(res)
 				//writer.Flush()
 			}
