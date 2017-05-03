@@ -18,6 +18,8 @@ import (
 	"time"
 	"sync"
 	"os"
+	"os/signal"
+	"syscall"
 	"encoding/csv"
 	"strconv"
 )
@@ -75,15 +77,17 @@ func NewSub(proto string, host string, port string, topic string, statsAddress s
 //the stat server subscribe to the sub topic to obtain the message info
 //it will use the info to calculate the delayed time
 func (sub Sub) SubscribeToStats() error {
-
+        //channel to manage the CTRL-C
+        signalCh := make(chan os.Signal, 1)
+        signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM) 
 	if sub.Protocol != protocol.NATS {
 		return errors.New("SubscribeToStats only available with NATS Broker")
 	}
 	quit := make(chan bool)
 	go handleStatInfo(&sub, quit)
 	go handleStatGen(quit)
-	<-quit
-
+	<-signalCh
+	fmt.Println("Exiting after a CTRL-C")
 	return nil
 }
 
