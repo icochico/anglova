@@ -181,9 +181,15 @@ func (sub Sub) Subscribe(topic string) error {
 	go printTestStat(statmap)
 	switch sub.Protocol {
 	case protocol.NATS:
-		sub.conn.NATSClient.Subscribe(topic, func(m *nats.Msg) {
+		subscription, _ := sub.conn.NATSClient.Subscribe(topic, func(m *nats.Msg) {
 			handleSubTest(sub, m.Data, imsgRcvCount, statmap)
 		})
+		msgLimit := int(1e7)
+		bytesLimit := int(1e10)
+		err := subscription.SetPendingLimits(msgLimit, bytesLimit)
+		if err != nil {
+			return fmt.Errorf("Got an error on subscription.SetPendingLimit(%v, %v) for subj:'%s': %v\n", msgLimit, bytesLimit, topic, err)
+		}
 		<-quit
 	case protocol.RabbitMQ:
 		channel := sub.conn.RabbitMQClient
