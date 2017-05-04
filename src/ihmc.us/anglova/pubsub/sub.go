@@ -77,9 +77,9 @@ func NewSub(proto string, host string, port string, topic string, statsAddress s
 //the stat server subscribe to the sub topic to obtain the message info
 //it will use the info to calculate the delayed time
 func (sub Sub) SubscribeToStats() error {
-        //channel to manage the CTRL-C
-        signalCh := make(chan os.Signal, 1)
-        signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM) 
+	//channel to manage the CTRL-C
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 	if sub.Protocol != protocol.NATS {
 		return errors.New("SubscribeToStats only available with NATS Broker")
 	}
@@ -307,44 +307,44 @@ func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg
 	delay := (time.Now().UnixNano() - metaData.Timestamp) / 1e6
 	//if the clientID of the received message
 	//is the same of the the local clientId do not increase the stat
-	if metaData.ClientID != sub.ID {
-		//is the msg out of order?
-		outOfOrder := false
-		if statmap[metaData.ClientID].ReceivedMsg != metaData.MsgId {
-			log.Debug("Out of Order? ", imsgRcvCount, metaData.MsgId)
-			outOfOrder = true
-		}
-		imsgRcvCount++
-		//delay for the message in millisecond
-		mstat := msg.Statistics{
-			ReceivedMsg:     int32(statmap[metaData.ClientID].ReceivedMsg + 1),
-			CumulativeDelay: int64(statmap[metaData.ClientID].CumulativeDelay + delay),
-		}
-		if outOfOrder {
-			mstat.OutOfOrderMsgs++
-		}
-		statmap[metaData.ClientID] = mstat
-		log.Info(" Received message: clientId ", metaData.ClientID, " msgSize ", len(data), " MsgId ", metaData.MsgId,
-			"Total Received messages", imsgRcvCount, " ReceivedDelay(ms) ", delay, "OutofOrder: ", outOfOrder)
-		//send the msg info to the stats server
-		stat := &stats.Stats{}
-		stat.ClientType = stats.ClientType_Subscriber
-		stat.PublisherId = metaData.ClientID
-		stat.SubscriberId = sub.ID
-		stat.MessageId = metaData.MsgId
-		stat.MessageSize = int32(len(data))
-		buf, err := proto.Marshal(stat)
-		if err != nil {
-			log.Error("Impossible to Marshal the stat message")
-		}
-		//fmt.Println("about to send statistics ", stat.PublisherId, stat.SubscriberId, stat.MessageId )
-		err = sub.statsConn.NATSClient.Publish(StatsTopic, buf)
-		if err != nil {
-			log.Error("Impossible to send the msg Info to the stats broker")
-			scon, _ := conn.New(protocol.NATS, sub.statsAddr, sub.statsPort, StatsTopic, true)
-			sub.statsConn = *scon
-		}
+	//if metaData.ClientID != sub.ID {
+	//is the msg out of order?
+	outOfOrder := false
+	if statmap[metaData.ClientID].ReceivedMsg != metaData.MsgId {
+		log.Debug("Out of Order? ", imsgRcvCount, metaData.MsgId)
+		outOfOrder = true
 	}
+	imsgRcvCount++
+	//delay for the message in millisecond
+	mstat := msg.Statistics{
+		ReceivedMsg:     int32(statmap[metaData.ClientID].ReceivedMsg + 1),
+		CumulativeDelay: int64(statmap[metaData.ClientID].CumulativeDelay + delay),
+	}
+	if outOfOrder {
+		mstat.OutOfOrderMsgs++
+	}
+	statmap[metaData.ClientID] = mstat
+	log.Info(" Received message: clientId ", metaData.ClientID, " msgSize ", len(data), " MsgId ", metaData.MsgId,
+		"Total Received messages", imsgRcvCount, " ReceivedDelay(ms) ", delay, "OutofOrder: ", outOfOrder)
+	//send the msg info to the stats server
+	stat := &stats.Stats{}
+	stat.ClientType = stats.ClientType_Subscriber
+	stat.PublisherId = metaData.ClientID
+	stat.SubscriberId = sub.ID
+	stat.MessageId = metaData.MsgId
+	stat.MessageSize = int32(len(data))
+	buf, err := proto.Marshal(stat)
+	if err != nil {
+		log.Error("Impossible to Marshal the stat message")
+	}
+	//fmt.Println("about to send statistics ", stat.PublisherId, stat.SubscriberId, stat.MessageId )
+	err = sub.statsConn.NATSClient.Publish(StatsTopic, buf)
+	if err != nil {
+		log.Error("Impossible to send the msg Info to the stats broker")
+		scon, _ := conn.New(protocol.NATS, sub.statsAddr, sub.statsPort, StatsTopic, true)
+		sub.statsConn = *scon
+	}
+	//}
 }
 
 // print the statistics of the test on the console
@@ -366,7 +366,7 @@ func printTestStat(statmap map[int32]msg.Statistics) {
 				fmt.Println("ClientId: %d  ReceveidMsg: %d CumulativeDelay: %d ms  OutOfOrderMsgs: %d\n", clientId,
 					clientStat.ReceivedMsg, clientStat.CumulativeDelay, clientStat.OutOfOrderMsgs)
 				//res := []string{strconv.FormatInt(int64(clientId), 10), strconv.FormatInt(int64(clientStat.ReceivedMsg), 10),
-						//strconv.FormatInt(int64(clientStat.CumulativeDelay), 10), strconv.FormatInt(int64(clientStat.OutOfOrderMsgs), 10)}
+				//strconv.FormatInt(int64(clientStat.CumulativeDelay), 10), strconv.FormatInt(int64(clientStat.OutOfOrderMsgs), 10)}
 				//writer.Write(res)
 				//writer.Flush()
 			}
