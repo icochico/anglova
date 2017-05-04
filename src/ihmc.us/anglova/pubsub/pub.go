@@ -16,6 +16,7 @@ import (
 	"net"
 	"strings"
 	"strconv"
+	"fmt"
 )
 
 type Pub struct {
@@ -134,7 +135,9 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 	msgId := msg.ParseMetadata(buf).MsgId
 	switch pub.Protocol {
 	case protocol.NATS:
-		err = pub.conn.NATSClient.Publish(topic, buf)
+
+	err = pub.conn.NATSClient.Publish(topic, buf)
+
 	case protocol.RabbitMQ:
 		channel := pub.conn.RabbitMQClient
 		err = channel.Publish(
@@ -168,8 +171,12 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 		pub.PublishStats(msgId, int32(len(buf)))
 		return nil
 	} else {
+		fmt.Print("Not connected to NATS try to reconnect\n")
+		pub.conn.NATSClient.Close()
+		con, _ := conn.New(pub.Protocol, pub.host, pub.port, topic, true)
+		pub.conn = *con
 		//return nil anyway
-		return nil
+		return err
 	}
 }
 
@@ -188,5 +195,10 @@ func (pub *Pub) PublishStats(msgCount int32, msgSize int32) {
 	err = pub.statsConn.NATSClient.Publish(StatsTopic, statBuf)
 	if err != nil {
 		log.Error("Error sending stats to the HQ")
+		fmt.Print("Not connected to Anglova Stats Server try to reconnect\n")
+		pub.statsConn.NATSClient.Close()
+		con, _ := conn.New(protocol.NATS, pub.statsAddr, pub.statsPort, StatsTopic, true)
+		pub.statsConn = *con
+		//return nil anyway
 	}
 }
