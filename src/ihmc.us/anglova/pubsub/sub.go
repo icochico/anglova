@@ -341,6 +341,8 @@ func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg
 		err = sub.statsConn.NATSClient.Publish(StatsTopic, buf)
 		if err != nil {
 			log.Error("Impossible to send the msg Info to the stats broker")
+			scon, _ := conn.New(protocol.NATS, sub.statsAddr, sub.statsPort, StatsTopic, true)
+			sub.statsConn = *scon
 		}
 	}
 }
