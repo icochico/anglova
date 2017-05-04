@@ -40,7 +40,6 @@ type Sub struct {
 
 //lock to sync the reading and writing operations on the below maps
 var lock = sync.RWMutex{}
-
 //PubID MsgId MsgSize sentTime
 var sentTimes = make(map[int32]map[int32]map[int32]time.Time)
 //PubId MsgID MsgSize SubID RcvTime
@@ -184,6 +183,7 @@ func (sub Sub) Subscribe(topic string) error {
 		subscription, _ := sub.conn.NATSClient.Subscribe(topic, func(m *nats.Msg) {
 			handleSubTest(sub, m.Data, imsgRcvCount, statmap)
 		})
+		fmt.Println("Setting the pending limit")
 		msgLimit := int(1e7)
 		bytesLimit := int(1e10)
 		err := subscription.SetPendingLimits(msgLimit, bytesLimit)
@@ -343,13 +343,16 @@ func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg
 	if err != nil {
 		log.Error("Impossible to Marshal the stat message")
 	}
-	//fmt.Println("about to send statistics ", stat.PublisherId, stat.SubscriberId, stat.MessageId )
-	err = sub.statsConn.NATSClient.Publish(StatsTopic, buf)
-	if err != nil {
-		log.Error("Impossible to send the msg Info to the stats broker")
-		scon, _ := conn.New(protocol.NATS, sub.statsAddr, sub.statsPort, StatsTopic, true)
-		sub.statsConn = *scon
-	}
+	//decouple the send of the stats
+	go func (buf []byte) {
+		//fmt.Println("about to send statistics ", stat.PublisherId, stat.SubscriberId, stat.MessageId )
+		err = sub.statsConn.NATSClient.Publish(StatsTopic, buf)
+		if err != nil {
+			log.Error("Impossible to send the msg Info to the stats broker")
+			scon, _ := conn.New(protocol.NATS, sub.statsAddr, sub.statsPort, StatsTopic, true)
+			sub.statsConn = *scon
+		}
+	}(buf)
 	//}
 }
 
