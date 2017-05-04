@@ -308,7 +308,9 @@ func (sub Sub) Subscribe(topic string) error {
 }
 
 func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg.Statistics) {
+	start := time.Now()
 	//create the map to store the statistics of the arrived messages
+	log.Info("Processing a message")
 	metaData := msg.ParseMetadata(data)
 	delay := (time.Now().UnixNano() - metaData.Timestamp) / 1e6
 	//if the clientID of the received message
@@ -353,6 +355,8 @@ func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg
 			sub.statsConn = *scon
 		}
 	}(buf)
+	elapsed := time.Since(start)
+	fmt.Printf("Binomial took %s", elapsed)
 	//}
 }
 
