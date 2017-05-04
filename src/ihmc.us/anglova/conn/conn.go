@@ -9,10 +9,10 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/ipfs/go-ipfs-api"
 	"github.com/nats-io/go-nats"
-	zmq "github.com/pebbe/zmq4"
+	//zmq "github.com/pebbe/zmq4"
 	"github.com/streadway/amqp"
 	"ihmc.us/anglova/protocol"
-	"strconv"
+	//"strconv"
 	"sync"
 	"time"
 )
@@ -23,11 +23,11 @@ type Kafka struct {
 	Consumer sarama.Consumer
 }
 
-type ZMQ struct {
+/*type ZMQ struct {
 	ctx *zmq.Context
 	*zmq.Socket
 }
-
+*/
 // Redis client - defines the underlying connection and pub-sub
 // connections, as well as a mutex for locking write access,
 // since this occurs from multiple goroutines.
@@ -51,7 +51,7 @@ type Conn struct {
 	//IPFS shell
 	IPFSClient shell.Shell
 	//ZMQ client
-	ZMQClient ZMQ
+	//ZMQClient ZMQ
 	//Redis client
 	RedisClient Redis
 }
@@ -148,7 +148,7 @@ func New(proto string, host string, port string, topic string, publisher bool) (
 	case protocol.IPFS:
 		client := shell.NewShell(proto + "://" + host + ":" + port)
 		return &Conn{Protocol: proto, IPFSClient: *client}, nil
-	case protocol.ZMQ:
+	/*case protocol.ZMQ:
 		var err error
 		var context *zmq.Context
 		var socket *zmq.Socket
@@ -179,7 +179,7 @@ func New(proto string, host string, port string, topic string, publisher bool) (
 			}
 		}
 		client := &ZMQ{context, socket}
-		return &Conn{Protocol: proto, ZMQClient: *client}, nil
+		return &Conn{Protocol: proto, ZMQClient: *client}, nil*/
 	case protocol.Redis:
 		var redisHost = fmt.Sprintf("%s:%s", host, port)
 		conn, _ := redis.Dial("tcp", redisHost)

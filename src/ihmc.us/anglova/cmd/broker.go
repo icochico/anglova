@@ -1,5 +1,5 @@
 package cmd
-
+/*
 import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
@@ -63,3 +63,4 @@ var brokerCmd = &cobra.Command{
 		}
 	},
 }
+*/

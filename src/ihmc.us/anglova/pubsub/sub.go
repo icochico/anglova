@@ -272,7 +272,7 @@ func (sub Sub) Subscribe(topic string) error {
 			handleSubTest(sub, record.Data(), imsgRcvCount, statmap)
 		}
 		<-quit
-	case protocol.ZMQ:
+	/*case protocol.ZMQ:
 		err := sub.conn.ZMQClient.SetSubscribe(topic)
 		if err != nil {
 			return err
@@ -284,7 +284,7 @@ func (sub Sub) Subscribe(topic string) error {
 				break
 			}
 			handleSubTest(sub, message[1], imsgRcvCount, statmap)
-		}
+		}*/
 		<-quit
 	case protocol.Redis:
 		sub.conn.RedisClient.Subscribe(topic)

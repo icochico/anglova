@@ -158,8 +158,8 @@ func (pub *Pub) Publish(topic string, buf []byte) error {
 		_, _, err = pub.conn.KafkaClient.Producer.SendMessage(kafkaMessage)
 	case protocol.IPFS:
 		err = pub.conn.IPFSClient.PubSubPublish(topic, string(buf[:]))
-	case protocol.ZMQ:
-		_, err = pub.conn.ZMQClient.SendMessage(topic, buf)
+	/*case protocol.ZMQ:
+		_, err = pub.conn.ZMQClient.SendMessage(topic, buf)*/
 	case protocol.Redis:
 		pub.conn.RedisClient.Lock()
 		pub.conn.RedisClient.Conn.Send("PUBLISH", topic, buf)
