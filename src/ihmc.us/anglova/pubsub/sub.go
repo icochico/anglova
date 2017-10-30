@@ -145,14 +145,17 @@ func handleStatGen(quit chan bool) {
 				for size, subs := range msgSizes {
 					var totalDelayForMessage int64
 					var reachedSubscribers int32
-					for _, rTime := range subs {
+					var subList []string
+					for sub, rTime := range subs {
 						totalDelayForMessage += (rTime.UnixNano() - sentTimes[pubID][msgID][size].UnixNano()) / 1e6
 						reachedSubscribers++
+						subList = append(subList, strconv.FormatInt(int64(sub), 10))
 					}
 					fmt.Println("PubId", pubID, "MsgId ", msgID, "MsgSize", size, "TotalDelayForMsg ", totalDelayForMessage, "ReachedSubs ", reachedSubscribers)
 					res := []string{strconv.FormatInt(int64(pubID), 10), strconv.FormatInt(int64(msgID), 10), strconv.FormatInt(int64(size), 10),
 							strconv.FormatInt(int64(totalDelayForMessage), 10), strconv.FormatInt(int64(reachedSubscribers), 10)}
 					//log.Info("results: ", res)
+					res = append(res, subList...)
 					err := writer.Write(res)
 					if err != nil {
 						log.Error("Impossible to write on the CSV file")
@@ -177,16 +180,19 @@ func (sub Sub) Subscribe(topic string) error {
 	//the uint32 is the identifier for the pub nodes
 	statmap := make(map[int32]msg.Statistics)
 	quit := make(chan bool)
-	go printTestStat(statmap)
+	//go printTestStat(statmap)
 	switch sub.Protocol {
 	case protocol.NATS:
-		subscription, _ := sub.conn.NATSClient.Subscribe(topic, func(m *nats.Msg) {
+		subscription, err := sub.conn.NATSClient.Subscribe(topic, func(m *nats.Msg) {
 			handleSubTest(sub, m.Data, imsgRcvCount, statmap)
 		})
+		if err != nil {
+			log.Error("Error in subscribing ", err)
+		}
 		fmt.Println("Setting the pending limit")
 		msgLimit := int(1e7)
 		bytesLimit := int(1e10)
-		err := subscription.SetPendingLimits(msgLimit, bytesLimit)
+		err = subscription.SetPendingLimits(msgLimit, bytesLimit)
 		if err != nil {
 			return fmt.Errorf("Got an error on subscription.SetPendingLimit(%v, %v) for subj:'%s': %v\n", msgLimit, bytesLimit, topic, err)
 		}
@@ -315,7 +321,7 @@ func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg
 	delay := (time.Now().UnixNano() - metaData.Timestamp) / 1e6
 	//if the clientID of the received message
 	//is the same of the the local clientId do not increase the stat
-	//if metaData.ClientID != sub.ID {
+	if metaData.ClientID != sub.ID {
 	//is the msg out of order?
 	outOfOrder := false
 	if statmap[metaData.ClientID].ReceivedMsg != metaData.MsgId {
@@ -357,7 +363,7 @@ func handleSubTest(sub Sub, data []byte, imsgRcvCount int, statmap map[int32]msg
 	}(buf)
 	elapsed := time.Since(start)
 	fmt.Printf("Binomial took %s", elapsed)
-	//}
+	}
 }
 
 // print the statistics of the test on the console
